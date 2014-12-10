@@ -1,0 +1,182 @@
+/*
+ * Copyright  2006 PB Consult Inc.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
+package com.pb.idaho.pt.ldt;
+
+import com.pb.common.datafile.TableDataSet;
+import com.pb.common.matrix.Matrix;
+import com.pb.common.model.ConcreteAlternative;
+import com.pb.common.model.LogitModel;
+import com.pb.common.model.ModelException;
+import com.pb.models.pt.ldt.LDExternalDestinationModel;
+//import com.pb.models.pt.ldt.LDSkimsInMemory;
+import com.pb.models.pt.ldt.LDTour;
+import com.pb.models.pt.ldt.LDTourModeType;
+import com.pb.models.pt.ldt.ParameterReader;
+import com.pb.models.pt.util.SkimsInMemory;
+
+import static com.pb.idaho.pt.ldt.LDExternalDestinationChoiceParameters.SIZECOUNT;
+import static com.pb.idaho.pt.ldt.LDExternalDestinationChoiceParameters.TIME;
+
+import java.util.ResourceBundle;
+import java.util.Random;
+
+/**
+ * 
+ * @author Erhardt
+ * @version 1.0 Mar 8, 2007
+ *
+ */
+public class ITDLDExternalDestinationModel  extends LDExternalDestinationModel {
+ 
+    private Matrix time;
+    private float[][] parameters;
+    public static SkimsInMemory skims;
+    private ConcreteAlternative[] alts;
+    private float volume[]; 
+    private LogitModel model;
+    
+    /**
+     * Default Constructor    
+     */
+    public ITDLDExternalDestinationModel() {
+        super();
+    }
+    
+    /**
+     * Initializes the class.  
+     * 
+     * @param globalRb
+     * @param ptRb
+     */
+    public void initialize(ResourceBundle globalRb, ResourceBundle ptRb) {
+
+        super.initialize(globalRb, ptRb);        
+        
+        // get the time matrix
+        //time = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Time");					//was read in buildModel() as well [AK]
+        
+        readParameters(); 
+        buildModel(); 
+    }
+    
+    
+    /**
+     * Read parameters from file specified in properties.
+     * 
+     */
+    private void readParameters() {
+        
+        logger.info("Reading LDInternalDestinationChoiceParameters");
+        parameters = ParameterReader.readParameters(ptRb,
+                "ldt.external.destination.choice.parameters");
+        
+    }
+    
+    /**
+     * Computes size terms in each external station. 
+     * 
+     */
+    private void buildModel() {
+
+        logger.info("Building External Destination Choice Model...");
+
+        //time = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Time");					[AK]
+        skims = SkimsInMemory.getSkimsInMemory();
+        time = skims.opTime;
+        
+        TableDataSet externalStationData = ParameterReader.readParametersAsTable(ptRb,
+                "ldt.external.station.volumes");
+        alts = new ConcreteAlternative[externalStationData.getRowCount()];
+        volume = new float[externalStationData.getRowCount()]; 
+        model = new LogitModel("LD External Destination Choice");
+
+        for (int i = 0; i < externalStationData.getRowCount(); i++) {
+            Integer taz = new Integer((int) externalStationData.getValueAt(i + 1, "ExSta"));
+            volume[i] = externalStationData.getValueAt(i + 1, "Vehicles");
+            alts[i] = new ConcreteAlternative(taz.toString(), taz);
+            model.addAlternative(alts[i]);
+        }
+    }
+    
+    
+    
+    /**
+     * Calculate utilites for all possible destinations
+     * and return logsum for origin TAZ.
+     * 
+     * @param tour Decision-makers long-distance tour.
+     * 
+     * @return The destination choice logsum from tour origin TAZ to all TAZs. 
+     */
+    private double calculateUtility(LDTour tour) {
+                
+        // for each alternative
+        for (int i=0; i<alts.length; i++) {
+            
+            Integer taz = (Integer) alts[i].getAlternative(); 
+            float travelTime = time.getValueAt(tour.homeTAZ, taz);
+          
+            double size = parameters[tour.purpose.ordinal()][SIZECOUNT] * volume[i];
+            
+            if (size > 0) {
+                double utility = parameters[tour.purpose.ordinal()][TIME] * travelTime
+                               + Math.log(size); 
+                alts[i].setUtility(utility);  
+                alts[i].setAvailability(true); 
+            }
+            else {
+                alts[i].setAvailability(false);
+            }
+        }
+        
+        return model.getUtility();
+    }
+    
+    
+    
+    /**
+     * 
+     * @return  The ID of the chosen TAZ.  
+     */
+    public int chooseTaz(LDTour tour, boolean sensitivityTesting) {
+        long seed = tour.hh.ID*100 + tour.person.memberID + tour.ID + ldExternalDestinationFixedSeed;
+        if(sensitivityTesting) seed += System.currentTimeMillis();
+
+        Random random = new Random();
+        random.setSeed(seed);
+        // choose the taz      
+        Integer chosenTaz; 
+        try {
+            calculateUtility(tour);
+            model.calculateProbabilities();
+            ConcreteAlternative chosen = (ConcreteAlternative) model.chooseAlternative(random.nextDouble());
+            chosenTaz = (Integer) chosen.getAlternative(); 
+        } catch (Exception e) {
+            String msg = "Error in external desination choice: no alts available ";
+            logger.fatal(msg);
+            throw new ModelException(msg);
+        }
+        
+        if (trace) {
+            logger.info("    The External Destination Choice for HH + " + tour.hh.ID
+                    + " person " + tour.person.memberID + " tour " + tour.ID
+                    + " is : " + chosenTaz);
+        }
+        
+        return chosenTaz;
+    }
+}

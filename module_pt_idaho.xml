@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project name="module_pt_idaho" default="compile.module.pt_idaho">
+  <dirname property="module.pt_idaho.basedir" file="${ant.file.module_pt_idaho}"/>
+  
+  <property name="module.jdk.home.pt_idaho" value="${project.jdk.home}"/>
+  <property name="module.jdk.classpath.pt_idaho" value="${project.jdk.classpath}"/>
+  
+  <property name="compiler.args.pt_idaho" value="${compiler.args}"/>
+  
+  <property name="pt_idaho.output.dir" value="${module.pt_idaho.basedir}/build/classes"/>
+  <property name="pt_idaho.testoutput.dir" value="${module.pt_idaho.basedir}/build/classes"/>
+  
+  <path id="pt_idaho.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="pt_idaho.module.classpath">
+    <path refid="${module.jdk.classpath.pt_idaho}"/>
+    <pathelement location="${common-base.output.dir}"/>
+    <pathelement location="${module.pt_idaho.basedir}/../../third-party/logging-log4j-1.2.9/log4j-1.2.9.jar"/>
+  	<pathelement location="${module.pt_idaho.basedir}/../../third-party/jnativeaccess/jna-4.0.0.jar"/>
+    <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/junit-4.1.jar"/>  
+    <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/dxml.jar"/>
+    <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/or124.jar"/>
+    <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/dx.jar"/>
+    <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/cajo.jar"/>
+    <pathelement location="${common-daf-v2.output.dir}"/>
+    <pathelement location="${utils.output.dir}"/>
+    <pathelement location="${reference.output.dir}"/>
+    <pathelement location="${censusdata.output.dir}"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.pt_idaho"/>
+  
+  <patternset id="excluded.from.compilation.pt_idaho">
+    <patternset refid="excluded.from.module.pt_idaho"/>
+    <patternset refid="compiler.excluded"/>
+  </patternset>
+  
+  <path id="pt_idaho.module.sourcepath">
+    <dirset dir="${module.pt_idaho.basedir}">
+      <include name="src/java"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.pt_idaho" depends="compile.module.common-base, compile.module.common-daf-v2, compile.module.utils, compile.module.reference, compile.module.censusdata" description="compile module pt_idaho production classes">
+    <mkdir dir="${pt_idaho.output.dir}"/>
+    <javac destdir="${pt_idaho.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memoryMaximumSize="${compiler.max.memory}" fork="true" executable="${module.jdk.home.pt_idaho}/bin/javac">
+      <compilerarg line="${compiler.args.pt_idaho}"/>
+      <bootclasspath refid="pt_idaho.module.bootclasspath"/>
+      <classpath refid="pt_idaho.module.classpath"/>
+      <src refid="pt_idaho.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.pt_idaho"/>
+    </javac>
+    <copy todir="${pt_idaho.output.dir}">
+      <fileset dir="${module.pt_idaho.basedir}/src/java">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+        <patternset refid="excluded.from.compilation.pt_idaho"/>
+      </fileset>
+    </copy>
+  </target>
+  
+
+  <target name="clean.module.pt_idaho" description="cleanup module">
+    <delete dir="${pt_idaho.output.dir}"/>
+    <delete dir="${pt_idaho.testoutput.dir}"/>
+  </target>
+</project>
