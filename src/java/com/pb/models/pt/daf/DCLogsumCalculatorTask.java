@@ -21,9 +21,11 @@ import com.pb.common.daf.MessageProcessingTask;
 import com.pb.common.matrix.Matrix;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.pt.*;
-
 import static com.pb.models.pt.daf.MessageID.DC_LOGSUMS_CREATED;
+import static com.pb.models.pt.daf.MessageID.MC_LOGSUMS_READ;
+import com.pb.models.pt.util.MCLogsumsInMemory;
 import com.pb.models.pt.util.SkimsInMemory;
+
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -44,10 +46,10 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
     public static SkimsInMemory skims;
     protected static ResourceBundle ptRb;
     protected static ResourceBundle globalRb;
-
+    private static Matrix[][] mcLogsums;
+    private static boolean logsumsRead = false;
     //private TazManager tazManager;
     int[] extNumbers;
-    private TourModeChoiceLogsumManager mcLogsums;
     TourDestinationChoiceModel model;
 
 
@@ -79,26 +81,47 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
 
                 //initialize price converter
                 PriceConverter.getInstance(ptRb,globalRb);
-
+                
                 skims = SkimsInMemory.getSkimsInMemory();
-
+                
                 initialized = true;
                 dcLogger.info(getName() + ", Finished initializing");
             }
        }
-
-
     }
 
     public void onMessage(Message msg) {
-        dcLogger.info(getName() + ", Received messageId=" + msg.getId()
-                + " message from=" + msg.getSender() + ". MsgNum: " + msg.getIntValue("msgNum"));
-
-        //createGradeschoolDCLogsums(msg);
-        createDCLogsums(msg);
+        
+        if(msg.getId().equals(MessageID.READ_MC_LOGSUMS)){
+            dcLogger.info(getName() + ", Received messageId=" + msg.getId()
+                    + " message from=" + msg.getSender());
+        	readMCLogsums();
+        }
+        else if(msg.getId().equals(MessageID.CREATE_DC_LOGSUMS)){
+            dcLogger.info(getName() + ", Received messageId=" + msg.getId()
+                    + " message from=" + msg.getSender() + ". MsgNum: " + msg.getIntValue("msgNum"));
+        	createDCLogsums(msg);
+        }
     }
 
-
+    /**
+     * Read mode choice logsums
+     *
+     */
+    public void readMCLogsums() {
+    	synchronized (lock) {
+    		if(!logsumsRead){
+    			MCLogsumsInMemory logsumsInMemory = new MCLogsumsInMemory();
+    	        mcLogsums = logsumsInMemory.getLogsumsInMemory();
+    			logsumsRead = true;
+    		}
+            Message message = createMessage();
+            message.setId(MC_LOGSUMS_READ);
+            sendTo("TaskMasterQueue", message);
+    	}    	
+    }
+    
+    
     /**
      * Create destination choice aggregate logsums
      *
@@ -117,7 +140,7 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
             if (purpose == ActivityPurpose.HOME || purpose == ActivityPurpose.WORK) {
                 continue;
             }
-            mc = mcLogsums.getLogsumMatrix(purpose, segment);
+			mc = mcLogsums[purpose.ordinal()][segment];
             logsums = TourDestinationChoiceLogsums.createLogsums(
                     purpose, extNumbers, mc, skims, model);
 
@@ -156,7 +179,7 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
             dcLogger.info(getName()+ ", Creating Destination Choice Logsums Vectors for purpose: " + purpose);
             dcLogger.info(getName()+ ", Reading Mode Choice Logsums Vectors for purpose: " + purpose);
 
-            mc = mcLogsums.getLogsumMatrix(purpose, segment);
+            mc = mcLogsums[purpose.ordinal()][segment];
             logsums = TourDestinationChoiceLogsums.createLogsums(
                     purpose, extNumbers, mc, skims, model);
 
@@ -199,16 +222,12 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
             // inits for non-static members
             // read workplace locations from file
             dcLogger.info(getName() + ", Reading employment from file");
-            String filePath = ResourceUtil.getProperty(ptRb, "sdt.current.employment");
-            if(!new File(filePath).exists()){
-                filePath = ResourceUtil.getProperty(ptRb, "sdt.previous.employment");
-            }
+            String filePath = ResourceUtil.getProperty(ptRb, "sdt.employment");
             tazManager.updateWorkersFromSummary(filePath);
 
             model = new TourDestinationChoiceModel(ptRb);
             model.buildModel(tazManager);
 
-            mcLogsums = new TourModeChoiceLogsumManager(globalRb, ptRb);
             extNumbers = tazManager.getExternalNumberArrayZeroIndexed();
 
         }
@@ -221,7 +240,6 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
         ptRb = null;
         globalRb = null;
         extNumbers = null;
-        mcLogsums = null;
         model = null;    
     }
 
@@ -237,12 +255,20 @@ public class DCLogsumCalculatorTask extends MessageProcessingTask {
             skims.setGlobalProperties(globalRb);
             skims.readSkims(ptRb);
         }
-
+        
+		if(!logsumsRead){
+			MCLogsumsInMemory logsumsInMemory = new MCLogsumsInMemory();
+	        mcLogsums = logsumsInMemory.getLogsumsInMemory();
+			logsumsRead = true;
+		}
+		
+        System.out.println("creating messagee");
         Message msg = dcCalc.mFactory.createMessage();
         msg.setId(MessageID.CREATE_DC_LOGSUMS);
         msg.setValue("msgNum", (1));
         msg.setValue("segment", 2);
 
+        System.out.println("Creating dclogsums");
         dcCalc.createGradeschoolDCLogsums(msg);
     }
 

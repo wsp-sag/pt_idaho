@@ -64,7 +64,7 @@ public abstract class Taz implements Alternative, Comparable, Serializable {
     public HashMap<String, Float> employment;
     public float workParkingCost;
     public float nonWorkParkingCost;
-    
+    public int dcDistrict;
     public boolean tourSizeTermsSet;
     public boolean stopSizeTermsSet;
     public double[] tourSizeTerm = new double[ActivityPurpose.values().length];
@@ -149,9 +149,9 @@ public abstract class Taz implements Alternative, Comparable, Serializable {
 
     public void calcTourDestinationUtility(ActivityPurpose purpose,
             float[] tdp, double logsum, double distance,TourDestinationPersonAttributes attributes,
-            boolean trace, Taz origin) {
+            boolean trace, Taz origin, float calibConstant) {
         this.trace = trace;
-        calcTourDestinationUtility(purpose, tdp, logsum, distance, attributes, origin);
+        calcTourDestinationUtility(purpose, tdp, logsum, distance, attributes, origin, calibConstant);
     }
 
     /**
@@ -165,7 +165,7 @@ public abstract class Taz implements Alternative, Comparable, Serializable {
     public void calcTourDestinationUtility(ActivityPurpose purpose,
             float[] tdp, double logsum, double distance, 
             TourDestinationPersonAttributes attributes, 
-            Taz origin) {
+            Taz origin, float calibConstant) {
 
         utility = -999;
         int intrazonal = 0;
@@ -183,11 +183,15 @@ public abstract class Taz implements Alternative, Comparable, Serializable {
         
         int cbd=0;         
         if (areatype.equals(AreaType.CBD)) cbd=1;
+       
         
         // utility calculations
         if (tourSizeTerm[purpose.ordinal()] > 0 && acres > 0) {
-            utility = tdp[LOGSUM] * logsum
-                    + tdp[DISTANCE] * distance
+            utility = calibConstant + tdp[LOGSUM] * logsum
+                    + tdp[DISTANCE] * Math.min(distance,tdp[MAXDIST])
+                    + tdp[DISTANCE2] * Math.pow(Math.min(distance,tdp[MAXDIST]), 2)
+                    + tdp[DISTANCE3] * Math.pow(Math.min(distance,tdp[MAXDIST]), 3)
+                    + tdp[LOGDISTANCE] * Math.log(Math.min(distance,tdp[MAXDIST]) + 1)
                     + tdp[DISTANCE2TOURS] * distance *attributes.twoTours
                     + tdp[DISTANCE3PTOURS] * distance *attributes.threePlusTours
                     + tdp[DISTANCE1STOP] * distance * attributes.oneStop
@@ -225,6 +229,9 @@ public abstract class Taz implements Alternative, Comparable, Serializable {
             if (trace) {
                 logger.info("taz " +zoneNumber +" = "+ tdp[LOGSUM] + "*" + logsum);
                 logger.info("   + "+ tdp[DISTANCE] + " * " + distance);
+                logger.info("   + "+ tdp[DISTANCE2] + " * " + Math.pow(distance, 2));
+                logger.info("   + "+ tdp[DISTANCE3] + " * " + Math.pow(distance, 3));
+                logger.info("   + "+ tdp[LOGDISTANCE] + " * " + Math.log(distance + 1));
                 logger.info("   + "+ tdp[DISTANCE2TOURS]+" * "+distance+" * "+attributes.twoTours);
                 logger.info("   + "+ tdp[DISTANCE3PTOURS]+" * "+distance +" * "+attributes.threePlusTours);
                 logger.info("   + "+ tdp[DISTANCE1STOP]+" * "+distance +" * "+ attributes.oneStop);

@@ -168,7 +168,8 @@ public class LDAmz implements Serializable {
             throw new RuntimeException("LDAmz availabilities not set!");
         }
         if (availableZoneNumbers.size()==0) {
-            return 0; 
+        	logger.info("reached here 3");
+        	return 0; 
         }
         
         double total = 0;         
@@ -205,7 +206,6 @@ public class LDAmz implements Serializable {
         }
         
         double totalSize = calculateLDSize(hha, tour);
-        
         double culmFreq=0;
         int chosenTaz = 0; 
         

@@ -19,13 +19,18 @@ package com.pb.models.pt;
 import com.pb.common.datafile.CSVFileReader;
 import com.pb.common.datafile.TableDataSet;
 import com.pb.common.matrix.Matrix;
+import com.pb.common.model.DiscreteChoiceModel;
 import com.pb.common.model.LogitModel;
 import com.pb.common.model.ModelException;
+import com.pb.common.newmodel.Alternative;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.utils.Tracer;
+
 import org.apache.log4j.Logger;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Random;
@@ -62,7 +67,7 @@ public class TourDestinationChoiceModel extends TimedModel {
     boolean trace = false;
     float distanceThreshold = 999;
 
-    boolean calculateUtilities = true;
+    boolean calculateUtilities = true; 
 
     PTHousehold currentHousehold;
 
@@ -71,6 +76,10 @@ public class TourDestinationChoiceModel extends TimedModel {
     Tour currentTour;
     
     private Tracer tracer = Tracer.getTracer();
+    
+    protected static float [][][] districtConstants;
+    
+    protected static int totalDCDistricts;
     
 //    private String debugPath;
 
@@ -99,7 +108,41 @@ public class TourDestinationChoiceModel extends TimedModel {
                 "ldt.threshold.distance.in.miles"));
         logger.info("Long distance threshold set at " + distanceThreshold);
 
-//        debugPath = ResourceUtil.getProperty(rb, "debugFiles.path");
+        totalDCDistricts = Integer.parseInt(rb.getString("total.destination.choice.districts"));
+		String calibConstantFile = rb.getString("calibration.constants.parameters");
+		ActivityPurpose[] purposes = ActivityPurpose.values();
+		districtConstants = new float [totalDCDistricts+1][totalDCDistricts+1][purposes.length];
+		
+		//initialize
+		for(int oD = 0; oD <= totalDCDistricts; oD++){
+			for(int dD = 0; dD <= totalDCDistricts; dD++){
+				for(int p = 0; p < purposes.length; p++){
+					districtConstants[oD][dD][p] = 0;
+				}
+			}
+		}
+		
+		//load calibration constants into 3D array
+		try {
+			BufferedReader reader = new BufferedReader( new FileReader(calibConstantFile) );
+			int rowNumber = 0;
+			String line;
+			while ((line = reader.readLine()) != null) {
+				if (rowNumber ==0) continue;
+				String[] tokens = line.split(",");
+				int oDistrict = Integer.parseInt(tokens[0]);
+				int dDistrict = Integer.parseInt(tokens[1]);
+				int purpose = Integer.parseInt(tokens[2]);
+				float constant = Float.parseFloat(tokens[3]);
+				districtConstants[oDistrict][dDistrict][purpose] = constant;
+				rowNumber++;
+			}
+			reader.close();
+		} catch (IOException e) {
+			logger.fatal("Can't find input file " + calibConstantFile);
+			throw new RuntimeException("Can't find input file " + calibConstantFile);
+		}
+		
         endTiming();
     }
 
@@ -109,9 +152,7 @@ public class TourDestinationChoiceModel extends TimedModel {
      * 
      * @param tazs  A set of tazs to add to the model.
      */
-    public void buildModel(TazManager tazs) { // passsing in PTModel.tazs and
-        // adding to logit model as
-        // alternatives
+    public void buildModel(TazManager tazs) { // passsing in PTModel.tazs and adding to logit model as alternatives
         startTiming();
 
         tazManager = tazs;
@@ -125,6 +166,7 @@ public class TourDestinationChoiceModel extends TimedModel {
             destinationModel.addAlternative(destinationTaz);
         }
         endTiming();
+        
     }
 
     /**
@@ -147,7 +189,8 @@ public class TourDestinationChoiceModel extends TimedModel {
 
         int originTazNumber = tour.begin.location.zoneNumber;
         Taz origin = tazManager.getTaz(originTazNumber); 
-
+        int originDistrict = (int) origin.dcDistrict;
+        
         trace = tracer.isTracePerson(person.hhID + "_" + person.memberID);
 
         currentHousehold = household;
@@ -163,6 +206,7 @@ public class TourDestinationChoiceModel extends TimedModel {
         }
 
         float[] params;
+        
         if (tour.begin.activityPurpose == ActivityPurpose.WORK ) {
             params = parameters[ActivityPurpose.WORK_BASED.ordinal()];
         } else {
@@ -183,15 +227,16 @@ public class TourDestinationChoiceModel extends TimedModel {
                     + ", Tour " + tour.tourNumber + ", ActivityPurpose " + purpose
                     + ", Origin "+ tour.begin.location.zoneNumber);
         }
-
+        
         int tazsWithinDistanceThreshold = 0;
         int tazsWithinTimeAvailable = 0;
-        
         // cycle through zones and compute total exponentiated utility
         Enumeration tazEnum = tazManager.elements();
         for (int i = 0; i < tazManager.size(); i++) { 
             Taz destinationTaz = (Taz) tazEnum.nextElement();
-             
+            int destinationDistrict = (int) destinationTaz.dcDistrict;
+            float calibConstant = districtConstants[originDistrict][destinationDistrict][purpose.ordinal()];
+            
             float mcLogsum = logsumMatrix.getValueAt(originTazNumber,
                     destinationTaz.zoneNumber);
 
@@ -225,9 +270,9 @@ public class TourDestinationChoiceModel extends TimedModel {
 
             if (destinationTaz.isAvailable()) {
                 destinationTaz.calcTourDestinationUtility(purpose, params,
-                        mcLogsum, distance, personAttributes, trace, origin);
-            }
-
+                        mcLogsum, distance, personAttributes, trace, origin, calibConstant);
+            }            
+            
             if(trace){
                 logger.info("Taz " + destinationTaz.getZoneNumber() + " is available? " + destinationTaz.isAvailable());
                 logger.info("Distance: " + distance + " MC Logsum: " + mcLogsum);
@@ -236,7 +281,6 @@ public class TourDestinationChoiceModel extends TimedModel {
             }
         
         } // end destinations
-
         if (tazsWithinDistanceThreshold == 0) {
             logger.info("Error:  No tazs within distance threshold "
                     + distanceThreshold + " miles ");
@@ -254,10 +298,15 @@ public class TourDestinationChoiceModel extends TimedModel {
         
         if(trace)
             destinationModel.writeUtilityHeader();
-        
+
         double utility = destinationModel.getUtility(); 
+        
+//        if(purpose == ActivityPurpose.GRADESCHOOL){
+//        	logger.info("ORIGIN " + originTazNumber + ", UTILITY " + utility);
+//        }
 
         endTiming();
+       
         return utility;
     }
 
@@ -293,15 +342,15 @@ public class TourDestinationChoiceModel extends TimedModel {
                 logger.error("tour is null");
             }
 
-//            logger.fatal("Unable to choose destination for "
-//                    + currentHousehold.ID + ", " + currentPerson.ID);
-            logger.error(e);
-            logger.fatal(currentHousehold);
-            logger.fatal(currentPerson);
-            logger.fatal("Tour purpose "
+            logger.debug("Unable to choose destination for person with HH_ID: " + currentHousehold.ID + 
+            		", and PER_ID: " + currentPerson.memberID + 
+            		", and purpose: " + currentTour.getPurpose());
+            logger.debug(e);
+            logger.debug(currentHousehold);
+            logger.debug(currentPerson);
+            logger.debug("Tour purpose "
                     + currentTour.getPurpose()
                     + " from home taz of " + currentPerson.homeTaz);
-
             throw new ModelException(e);
         }
 
@@ -329,7 +378,18 @@ public class TourDestinationChoiceModel extends TimedModel {
     public void setDistanceThreshold(float distanceThreshold) {
         this.distanceThreshold = distanceThreshold;
     }
+    
+	private TableDataSet loadTableDataSet(ResourceBundle rb, String pathName) {
+		String path = ResourceUtil.getProperty(rb, pathName);
+		try {
+			CSVFileReader reader = new CSVFileReader();
+			return reader.readFile(new File(path));
 
+		} catch (IOException e) {
+			logger.fatal("Can't find input table " + path);
+			throw new RuntimeException("Can't find input table " + path);
+		}
+	}
     /**
      * Ensure that the model can be built.
      * @param args Runtime args

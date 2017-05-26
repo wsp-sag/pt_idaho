@@ -22,6 +22,7 @@ import com.pb.common.util.SeededRandom;
 import com.pb.models.pt.ldt.LDExternalModeChoiceModel;
 import com.pb.models.pt.ldt.LDTour;
 import com.pb.models.pt.ldt.LDTourModeType;
+import com.pb.models.pt.util.SkimsInMemory;
 import com.pb.models.pt.util.Synchronizable;
 
 import java.util.ResourceBundle;
@@ -38,6 +39,8 @@ public class ITDLDExternalModeChoiceModel extends LDExternalModeChoiceModel {
 
     private static String MATRIX_EXTENSION;
     protected static final Object lock = new Object();
+    protected static SkimsInMemory skims;
+    
     
     /**
      * Default constructor. 
@@ -58,10 +61,13 @@ public class ITDLDExternalModeChoiceModel extends LDExternalModeChoiceModel {
         MATRIX_EXTENSION = globalRb.getString("matrix.extension");
         readParameters(); 
         
+        skims = SkimsInMemory.getSkimsInMemory();
+        
     	// read the distance matrix
-    	String skimPath = ResourceUtil.getProperty(rb, "highway.assign.previous.skim.path");
-    	String fileName = ResourceUtil.getProperty(rb, "pt.Car.Op.skims.file");
-    	distance = readTravelCost(skimPath + fileName, "CarOpDist");
+//    	String skimPath = ResourceUtil.getProperty(rb, "highway.assign.previous.skim.path");
+//    	String fileName = ResourceUtil.getProperty(rb, "pt.Car.Op.skims.file");
+//      readTravelCost(skimPath + fileName, "CarOpDist");
+    	distance = skims.opDist;
     }
     
     

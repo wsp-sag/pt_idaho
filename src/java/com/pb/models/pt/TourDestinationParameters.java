@@ -27,39 +27,44 @@ package com.pb.models.pt;
 public class TourDestinationParameters {
 
     public final static int DISTANCE=1;
-    public final static int DISTANCE2TOURS=2;
-    public final static int DISTANCE3PTOURS=3;
-    public final static int DISTANCE1STOP=4;
-    public final static int DISTANCE2STOPS=5;
-    public final static int DISTPSHOME=6;
-    public final static int INTRAZONAL=7;
-    public final static int LOGSUM=8;
-    public final static int RETAIL=9;
-    public final static int OTHERSERVICES=10;
-    public final static int HOUSEHOLDS=11;
-    public final static int GOVERNMENT=12;
-    public final static int HEALTH=13;
-    public final static int TRANSPORTATION=14;
-    public final static int OTHEREMPLOYMENT=15;
-    public final static int HIGHEREDUCATION=16;
-    public final static int K12EDUCATION=17;
-    public final static int INTRAZONALACRES=18;
-    public final static int INTRAZONALRURAL=19;
-    public final static int INTRAZONALSUBURBAN=20;
-    public final static int INTRAZONALURBAN=21;
-    public final static int INTRAZONALCBD=22;
+    public final static int DISTANCE2=2;
+    public final static int DISTANCE3=3;
+    public final static int LOGDISTANCE=4;
+    public final static int MAXDIST=5;
+    public final static int DISTANCE2TOURS=6;
+    public final static int DISTANCE3PTOURS=7;
+    public final static int DISTANCE1STOP=8;
+    public final static int DISTANCE2STOPS=9;
+    public final static int DISTPSHOME=10;
+    public final static int INTRAZONAL=11;
+    public final static int LOGSUM=12;
+    public final static int RETAIL=13;
+    public final static int OTHERSERVICES=14;
+    public final static int HOUSEHOLDS=15;
+    public final static int GOVERNMENT=16;
+    public final static int HEALTH=17;
+    public final static int TRANSPORTATION=18;
+    public final static int OTHEREMPLOYMENT=19;
+    public final static int HIGHEREDUCATION=20;
+    public final static int K12EDUCATION=21;
+    public final static int OTHEREDUCATION=22;
+    public final static int INTRAZONALACRES=23;
+    public final static int INTRAZONALRURAL=24;
+    public final static int INTRAZONALSUBURBAN=25;
+    public final static int INTRAZONALURBAN=26;
+    public final static int INTRAZONALCBD=27;
     
     // used in Ohio only
-    public final static int HOTELEMPLOYMENT=23;
-    public final static int OTHEROFFICEEMPLOYMENT=24; 
+    public final static int HOTELEMPLOYMENT=28;
+    public final static int OTHEROFFICEEMPLOYMENT=29; 
     
     // used in Oregon only
-    public final static int COLUMBIARIVERCROSSING=25; 
+    public final static int COLUMBIARIVERCROSSING=30; 
     
     // distance by area type (used in Ohio) 
-    public final static int DISTANCERURAL=26;
-    public final static int DISTANCESUBURBAN=27;
-    public final static int DISTANCEURBAN=28;
-    public final static int DISTANCECBD=29;
+    public final static int DISTANCERURAL=31;
+    public final static int DISTANCESUBURBAN=32;
+    public final static int DISTANCEURBAN=33;
+    public final static int DISTANCECBD=34;
     
 }

@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src/java"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="C:/Users/kulshresthaa/Downloads/omx/lib/win64"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry combineaccessrules="false" kind="src" path="/logging-log4j-1.2.9"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/common-base"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/utils"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/reference"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/common-daf-v2"/>
 	<classpathentry kind="src" path="/censusdata"/>
+	<classpathentry kind="lib" path="C:/CodeRepository/cmf/common-base/lib/omx.jar"/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

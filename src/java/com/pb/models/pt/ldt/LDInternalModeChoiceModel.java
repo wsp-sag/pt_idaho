@@ -71,8 +71,6 @@ public class LDInternalModeChoiceModel {
     
     // The model parameters, for each purpose
     protected float[][] parameters;
-    
-    //LDSkimsInMemory skims;				// [AK]
     public static SkimsInMemory skims;
 
     private long ldInternalModeFixedSeed = Long.MIN_VALUE/9;
@@ -85,7 +83,6 @@ public class LDInternalModeChoiceModel {
         this.rb = rb;
         this.tazManager = tazManager;
         readParameters();
-        //skims = LDSkimsInMemory.getInstance();			// [AK]
         skims = SkimsInMemory.getSkimsInMemory();
         buildModel(); 
     }
@@ -113,23 +110,14 @@ public class LDInternalModeChoiceModel {
         root        = new LogitModel("root");
         groundNest  = new LogitModel("Ground Transit-HighSpeedRail Nest");
         transitNest = new LogitModel("Transit Walk-Drive Nest");
-//        hsrNest     = new LogitModel("HSR Walk-Drive Nest");
         
         auto         = new Auto(rb);
         air          = new Air(rb);
         transitWalk  = new TransitWalk(rb);
-//        transitDrive = new TransitDrive(rb);
-//        hsrWalk      = new HsrWalk(rb);
-//        hsrDrive     = new HsrDrive(rb);
         
         transitNest.addAlternative(transitWalk);
-//        transitNest.addAlternative(transitDrive);
-//
-//        hsrNest.addAlternative(hsrWalk);
-//        hsrNest.addAlternative(hsrDrive);
 
         groundNest.addAlternative(transitNest);
-//        groundNest.addAlternative(hsrNest);
 
         root.addAlternative(auto);
         root.addAlternative(air);
@@ -138,7 +126,6 @@ public class LDInternalModeChoiceModel {
         // set dispersion parameters
         groundNest.setDispersionParameter(root.getDispersionParameter() / parameters[0][NESTGROUND]);
         transitNest.setDispersionParameter(groundNest.getDispersionParameter() / parameters[0][NESTTRANSIT]);
-//        hsrNest.setDispersionParameter(groundNest.getDispersionParameter() / parameters[0][NESTHSR]);
     }
     
     /**
@@ -148,7 +135,6 @@ public class LDInternalModeChoiceModel {
      * @return     The travel time and cost for all modes for that tour.  
      */
     private TravelTimeAndCost setTravelTimeAndCost(LDTour tour) {
-    	// LDTravelTimeAndCost impedance = null; 				// [AK]
         TravelTimeAndCost impedance = null;
         switch (tour.patternType) {
         case BEGIN_TOUR : 
@@ -162,17 +148,14 @@ public class LDInternalModeChoiceModel {
                 tour.schedule.getArrivalMilitaryTime());
             break;
         case COMPLETE_TOUR :
-        	//LDTravelTimeAndCost outboundImpedance = skims.setTravelTimeAndCost(				    // [AK]
         	TravelTimeAndCost outboundImpedance = skims.setTravelTimeAndCost(
                     tour.homeTAZ, tour.destinationTAZ,
                     tour.schedule.getDepartureMilitaryTime());
-        	
-        	//LDTravelTimeAndCost inboundImpedance = skims.setTravelTimeAndCost(					// [AK]
+
         	TravelTimeAndCost inboundImpedance = skims.setTravelTimeAndCost(
                     tour.destinationTAZ, tour.homeTAZ,
                     tour.schedule.getArrivalMilitaryTime());
-        	
-        	//impedance = LDTravelTimeAndCost.addTimeAndCost(outboundImpedance, inboundImpedance);		// [AK]
+
             impedance = TravelTimeAndCost.addTimeAndCost(outboundImpedance, inboundImpedance); 
             break;
         default: 
@@ -201,17 +184,10 @@ public class LDInternalModeChoiceModel {
                 householdAttributes, tour, impedance);
         boolean isTransitWalkAvailable = transitWalk.calculateUtility(
                 purposeParams, householdAttributes, tour, impedance);
-//        boolean isTransitDriveAvailable = transitDrive.calculateUtility(
-//                purposeParams, householdAttributes, tour, impedance);
-//        boolean isHsrWalkAvailable = hsrWalk.calculateUtility(purposeParams,
-//                householdAttributes, tour, impedance);
-//        boolean isHsrDriveAvailable = hsrDrive.calculateUtility(purposeParams,
-//                householdAttributes, tour, impedance);
 
         // if no other modes are available, auto will be.
         boolean isNonAutoModeAvailable;
-        if (isAirAvailable | isTransitWalkAvailable) { // | isTransitDriveAvailable
-//                | isHsrWalkAvailable | isHsrDriveAvailable) {
+        if (isAirAvailable | isTransitWalkAvailable) { 
             isNonAutoModeAvailable = true;
         } else {
             isNonAutoModeAvailable = false;
@@ -348,15 +324,7 @@ public class LDInternalModeChoiceModel {
      * @param mode The mode of interest.
      * @return The travel time to go from the trips home to destination by that mode.   
      */
-    public float getOutboundTravelTime(LDTour tour, LDTourModeType mode) {
-    	
-    	/*	Changed [AK]
-        LDTravelTimeAndCost impedance = skims.setTravelTimeAndCost(
-                    tour.homeTAZ, tour.destinationTAZ,
-                    tour.schedule.getDepartureMilitaryTime());
-        return impedance.totalTime[mode.ordinal()];
-        */
-    	
+    public float getOutboundTravelTime(LDTour tour, LDTourModeType mode) {    	
     	TravelTimeAndCost impedance = skims.setTravelTimeAndCost(tour.homeTAZ, tour.destinationTAZ, tour.schedule.getDepartureMilitaryTime());
     	return impedance.totalTime[mode.ordinal()];
     }

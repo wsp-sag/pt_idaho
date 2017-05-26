@@ -23,14 +23,20 @@ import com.pb.common.util.ResourceUtil;
 import com.pb.models.pt.ldt.LDTourModeType;
 import com.pb.models.pt.ActivityPurpose;
 import com.pb.models.pt.PriceConverter;
+
 import org.apache.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+
+import java.util.HashSet;
+import java.util.Random;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 /**
  * A class that creates mode choice logsums by 9 market segments for all trip
@@ -42,17 +48,12 @@ public class SkimsInMemory implements Serializable {
     private static SkimsInMemory skims = new SkimsInMemory();
 
     private static final long serialVersionUID = 1L;
-    
-    protected static final Object lock = new Object();
 
     protected static Logger logger = Logger.getLogger(SkimsInMemory.class);
 
-    //public MatrixCollection pkwlk, pkdrv, opwlk, opdrv;
     public MatrixCollection pkwlk, opwlk;
-
     public Matrix pkAirFwt, pkAirIvt, pkAirDrv, pkAirFar;
     public Matrix opAirFwt, opAirIvt, opAirDrv, opAirFar;
-    
     public Matrix pkTime, pkDist, pkToll, opTime, opDist, opToll;
 
     // the array of modes
@@ -108,7 +109,6 @@ public class SkimsInMemory implements Serializable {
      */
     public void setGlobalProperties(ResourceBundle globalRb) {
         MATRIX_EXTENSION = globalRb.getString("matrix.extension");
-//        AOC = Float.parseFloat(ResourceUtil.getProperty(globalRb, "auto.operating.cost"));
         priceConverter = PriceConverter.getInstance(); //will throw an error if not initialized
         AOC = priceConverter.convertPrice(Float.parseFloat(ResourceUtil.getProperty(globalRb, "auto.operating.cost")),PriceConverter.ConversionType.PRICE);
         WALK_MPH = Float.parseFloat(ResourceUtil.getProperty(globalRb, "sdt.walk.mph"));
@@ -243,53 +243,92 @@ public class SkimsInMemory implements Serializable {
      * @param rb
      */
     public void readSkims(ResourceBundle rb) {
-        
-		readHighwaySkims(rb);
-		
+    	readHighwaySkims(rb);
 		readAirSkims(rb);
-
-		try {
-			String fileName;
-			String[] matrixNames;
-
-			logger.info("Reading transit skims into memory.");
-
-			String transitPath = ResourceUtil.getProperty(rb, "transit.assign.previous.skim.path");
-			logger.info("Transit Skim Path = " + transitPath);
-        
-			matrixNames = ResourceUtil.getArray(rb, "sdt.wt.peak.core.names");
-			fileName = ResourceUtil.getProperty(rb, "sdt.wt.peak.skims.file");
-			pkwlk = storeTransitSkims(matrixNames, fileName, transitPath, "WtPk");
-
-			matrixNames = ResourceUtil.getArray(rb, "sdt.wt.offpeak.core.names");
-			fileName = ResourceUtil.getProperty(rb, "sdt.wt.offpeak.skims.file");
-			opwlk = storeTransitSkims(matrixNames, fileName, transitPath, "WtOp");
-
-			//matrixNames = ResourceUtil.getArray(rb, "sdt.dt.peak.core.names");
-			//fileName = ResourceUtil.getProperty(rb, "sdt.dt.peak.skims.file");
-			//pkdrv = storeTransitSkims(matrixNames, fileName, transitPath, "DtPk");
-
-			//matrixNames = ResourceUtil.getArray(rb, "sdt.dt.offpeak.core.names");
-			//fileName = ResourceUtil.getProperty(rb, "sdt.dt.offpeak.skims.file");
-			//opdrv = storeTransitSkims(matrixNames, fileName, transitPath, "DtOp");
-			
-        
-		} catch (Exception e) {
-			logger.fatal("Error reading travel costs.");
-			throw new RuntimeException(e);
-		}
+		readTransitSkims(rb);
 
 		skimsRead = true;
 		logger.info("Finished reading skims into memory");
 
     }
 
-    public void readHighwaySkims(ResourceBundle rb) {
+    private void readTransitSkims(ResourceBundle rb) {
+        readPeakTransitSkims(rb);
+        readOffPeakTransitSkims(rb);
+
+        logger.info("Finished reading transit skims into memory");
+	}
+
+	private void readOffPeakTransitSkims(ResourceBundle rb) {
+		logger.info("Reading transit off-peak skims into memory.");
+		MatrixReader matReader = null;
+		String transitPath = ResourceUtil.getProperty(rb, "transit.assign.previous.skim.path");
+		logger.info("Transit Skim Path = " + transitPath);
+		
+		try {
+			String fileName;
+			fileName = ResourceUtil.getProperty(rb, "pt.wt.Op.skims.file");
+
+			String[] coreNames;
+			coreNames = ResourceUtil.getArray(rb, "pt.wt.Op.core.names");
+
+			matReader = MatrixReader.createReader(transitPath + fileName); 
+			//Skim Order is Ivt, Fwt, Twt, Brd, Far, Awk, Xwk, Ewk
+			String[] matNames = {"Ivt", "Fwt", "Twt", "Brd", "Far", "Awk", "Xwk", "Ewk"};
+			for(int i = 0; i < coreNames.length; i++){
+				Matrix m = matReader.readMatrix(coreNames[i]);
+				m.setName("WtOp" + matNames[i]);
+				if(matNames[i].startsWith("Far")){
+					m = convert1990To2000Dollars(m);			// fare matrix
+				}
+				if(i == 0){
+					opwlk = new MatrixCollection(m);
+				}
+				opwlk.addMatrix(m);
+			}
+		} catch (Exception e) {
+			logger.fatal("Error reading off-peak transit skims.");
+			throw new RuntimeException(e);
+		}        
+	}
+
+	private void readPeakTransitSkims(ResourceBundle rb) {
+		logger.info("Reading transit peak skims into memory.");
+		MatrixReader matReader = null;
+		String transitPath = ResourceUtil.getProperty(rb, "transit.assign.previous.skim.path");
+		logger.info("Transit Skim Path = " + transitPath);
+
+		try {
+			String fileName;
+			fileName = ResourceUtil.getProperty(rb, "pt.wt.Pk.skims.file");
+
+			String[] coreNames;
+			coreNames = ResourceUtil.getArray(rb, "pt.wt.Pk.core.names");
+			String[] matNames = {"Ivt", "Fwt", "Twt", "Brd", "Far", "Awk", "Xwk", "Ewk"};
+			matReader = MatrixReader.createReader(transitPath + fileName); 
+			//Skim Order is Ivt, Fwt, Twt, Brd, Far, Awk, Xwk, Ewk
+			for(int i = 0; i < coreNames.length; i++){
+				Matrix m = matReader.readMatrix(coreNames[i]);
+				m.setName("WtPk" + matNames[i]);
+				if(matNames[i].startsWith("Far")){
+					m = convert1990To2000Dollars(m);			// fare matrix
+				}
+				if(i == 0){
+					pkwlk = new MatrixCollection(m);
+				}
+				pkwlk.addMatrix(m);
+			}
+		} catch (Exception e) {
+			logger.fatal("Error reading peak transit skims.");
+			throw new RuntimeException(e);
+		}  
+	}
+
+	public void readHighwaySkims(ResourceBundle rb) {
 
         readPeakHighwaySkims(rb);
         readOffPeakHighwaySkims(rb);
 
-        skimsRead = true;
         logger.info("Finished reading highway skims into memory");
     }
 
@@ -297,25 +336,29 @@ public class SkimsInMemory implements Serializable {
         String hwyPath = ResourceUtil.getProperty(rb, "highway.assign.previous.skim.path");
         logger.info("Hwy Skim Path = " + hwyPath);
         logger.info("Reading Peak Highway Matrices into memory");
-
+        MatrixReader matReader = null;
         try {
             String fileName;
-
-            // 0 - time, 1 - dist, 2 - toll
             fileName = ResourceUtil.getProperty(rb, "pt.Car.Pk.skims.file");
+            matReader = MatrixReader.createReader(hwyPath + fileName); 
+            
+			String[] matrixNames;
+			matrixNames = ResourceUtil.getArray(rb, "pt.Car.Pk.core.names");
+			
+			//Skim Order is Time, Distance, Toll
             logger.info("Reading time in " + hwyPath + fileName);
-            pkTime = readTravelCost(hwyPath + fileName, "CarPkTime");
+            pkTime = matReader.readMatrix(matrixNames[0]);
+            
             logger.info("Reading distance in " + hwyPath + fileName);
-            pkDist = readTravelCost(hwyPath + fileName, "CarPkDist");
+            pkDist = matReader.readMatrix(matrixNames[1]);
+            
             logger.info("Reading toll in " + hwyPath + fileName);
-            pkToll = readTravelCost(hwyPath + fileName, "CarPkToll");
+            pkToll = matReader.readMatrix(matrixNames[2]);
             pkToll = convert1990To2000Dollars(pkToll);
-
         } catch (Exception e) {
             logger.fatal("Error reading travel costs.");
             throw new RuntimeException(e);
         }
-
         logger.info("Finished reading peak highway skims into memory");
     }
 
@@ -323,18 +366,23 @@ public class SkimsInMemory implements Serializable {
         String hwyPath = ResourceUtil.getProperty(rb, "highway.assign.previous.skim.path");
         logger.info("Hwy Skim Path = " + hwyPath);
         logger.info("Reading Off-peak Highway Matrices into memory");
-
+        MatrixReader matReader = null;
         try {
             String fileName;
-
-            // 0 - time, 1 - dist, 2 - toll
             fileName = ResourceUtil.getProperty(rb, "pt.Car.Op.skims.file");
+            matReader = MatrixReader.createReader(hwyPath + fileName);
+            String[] matrixNames;
+            matrixNames = ResourceUtil.getArray(rb, "pt.Car.Op.core.names");
+            
+            //Skim Order is Time, Distance, Toll
             logger.debug("Reading time in " + hwyPath + fileName);
-            opTime = readTravelCost(hwyPath + fileName, "CarOpTime");
+            opTime = matReader.readMatrix(matrixNames[0]);
+            
             logger.debug("Reading distance in " + hwyPath + fileName);
-            opDist = readTravelCost(hwyPath + fileName, "CarOpDist");
+            opDist = matReader.readMatrix(matrixNames[1]);
+            
             logger.debug("Reading toll in " + hwyPath + fileName);
-            opToll = readTravelCost(hwyPath + fileName, "CarOpToll");
+            opToll = matReader.readMatrix(matrixNames[2]);
             opToll = convert1990To2000Dollars(opToll);
 
         } catch (Exception e) {
@@ -346,11 +394,8 @@ public class SkimsInMemory implements Serializable {
     }
 
     public void readAirSkims(ResourceBundle rb) {
-
         readPeakAirSkims(rb);
         readOffPeakAirSkims(rb);
-        
-        skimsRead = true;
         logger.info("Finished reading air skims into memory");
     }
 
@@ -358,14 +403,17 @@ public class SkimsInMemory implements Serializable {
         String airPath = ResourceUtil.getProperty(rb, "transit.assign.previous.skim.path");
         logger.info("Air Skim Path = " + airPath);
         logger.info("Reading Peak Air Matrices into memory");
-
+        MatrixReader matReader = null;
         try {
             String fileName;
             fileName = ResourceUtil.getProperty(rb, "pt.Air.Pk.skims.file");
-            pkAirIvt = readTravelCost(airPath + fileName, "AirPkIvt");
-            pkAirFwt = readTravelCost(airPath + fileName, "AirPkFwt");
-            pkAirDrv = readTravelCost(airPath + fileName, "AirPkDrv");
-            pkAirFar = readTravelCost(airPath + fileName, "AirPkFar");
+            matReader = MatrixReader.createReader(airPath + fileName);
+            //Skim order is Ivt, Fwt, Drv, Far
+            String[] coreNames = ResourceUtil.getArray(rb, "pt.Air.Pk.core.names");
+            pkAirIvt = matReader.readMatrix(coreNames[0]);
+            pkAirFwt = matReader.readMatrix(coreNames[1]);
+            pkAirDrv = matReader.readMatrix(coreNames[2]);
+            pkAirFar = matReader.readMatrix(coreNames[3]);
             pkAirFar = convert1990To2000Dollars(pkAirFar);
 
         } catch (Exception e) {
@@ -380,17 +428,19 @@ public class SkimsInMemory implements Serializable {
         String airPath = ResourceUtil.getProperty(rb, "transit.assign.previous.skim.path");
         logger.info("Air Skim Path = " + airPath);
         logger.info("Reading Off-peak Air Matrices into memory");
-
+        MatrixReader matReader = null;
         try {
             String fileName;
             fileName = ResourceUtil.getProperty(rb, "pt.Air.Op.skims.file");
-            opAirIvt = readTravelCost(airPath + fileName, "AirOpIvt");
-            opAirFwt = readTravelCost(airPath + fileName, "AirOpFwt");
-            opAirDrv = readTravelCost(airPath + fileName, "AirOpDrv");
-            opAirFar = readTravelCost(airPath + fileName, "AirOpFar");
+            matReader = MatrixReader.createReader(airPath + fileName); 
+            
+            //Skim order is Ivt, Fwt, Drv, Far
+            String[] coreNames = ResourceUtil.getArray(rb, "pt.Air.Op.core.names");
+            opAirIvt = matReader.readMatrix(coreNames[0]);
+            opAirFwt = matReader.readMatrix(coreNames[1]);
+            opAirDrv = matReader.readMatrix(coreNames[2]);
+            opAirFar = matReader.readMatrix(coreNames[3]);
             opAirFar = convert1990To2000Dollars(opAirFar);
-
-
         } catch (Exception e) {
             logger.fatal("Error reading travel costs.");
             throw new RuntimeException(e);
@@ -458,7 +508,6 @@ public class SkimsInMemory implements Serializable {
         if (purpose == ActivityPurpose.WORK || purpose == ActivityPurpose.WORK_BASED) {
             return pkDist;
         }
-
         return opDist;
     }
 
@@ -781,17 +830,6 @@ public class SkimsInMemory implements Serializable {
                 tc.terminalTime[m]       = 30;
                 tc.totalTime[m]          = tc.inVehicleTime[m] + tc.walkTimeForLDMode[m] + tc.waitTime[m] + tc.terminalTime[m];
             }
-            
-        	/*
-        	// inter-city bus or rail in-vehicle time
-        	if (skimTables[m].contains("Biv")) {
-        		tc.icBusInVehicleTime[m] = skims[m].getValue(fromTaz, toTaz, "Biv"); 
-        	}
-        	if (skimTables[m].contains("Riv")) {
-        		tc.icRailInVehicleTime[m] = skims[m].getValue(fromTaz, toTaz, "Riv"); 
-        	}
-			*/
-            
         }        
 
         return tc;
@@ -1080,12 +1118,6 @@ public class SkimsInMemory implements Serializable {
 
         //logger.info("Reading travel costs in " + fileName);
         Matrix matrix = MatrixReader.readMatrix(new File(fileName), name);
-        
-        if (getInternalCordonZonePartition) {
-            matrix = getInternalCordonPartition(matrix);
-        } else {
-            matrix = getInternalPartition(matrix);
-        }
         
         matrix.setName(name);
         logger.debug("\tRead " + fileName + " in: " + (System.currentTimeMillis() - startTime) / 1000 + " seconds");

@@ -26,7 +26,6 @@ import com.pb.common.matrix.MatrixReader;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.pt.*;
 import com.pb.models.pt.util.SkimsInMemory;
-import com.pb.models.reference.IndustryOccupationSplitIndustryReference;
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -55,13 +54,18 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
 
     protected static MatrixCollection alphaLaborFlows = new MatrixCollection();
 
+    protected static TableDataSet occupationFile;
+    protected static TableDataSet industriesFile;
+    protected static String[] occupationLabels;
+    protected static String[] industryLabels;
+    
     protected static ResourceBundle ptRb;
     protected static ResourceBundle globalRb;
     protected static boolean CALCULATE_SDT;
     protected static String sendQueue = "TaskMasterQueue"; //default
     //protected static int MAX_ALPHAZONE_NUMBER;
     protected static int BASE_YEAR;
-    protected static IndustryOccupationSplitIndustryReference indOccSplitRef;
+    //protected static IndustryOccupationSplitIndustryReference indOccSplitRef;
     protected static SkimsInMemory skims;
     protected static String debugDirPath;
     //protected static int[] aZones;
@@ -180,7 +184,7 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
 //                String refFile = globalRb
 //                        .getString("industry.occupation.to.split.industry.correspondence");
 //                indOccSplitRef = new IndustryOccupationSplitIndustryReference(refFile);
-                indOccSplitRef = new IndustryOccupationSplitIndustryReference(IndustryOccupationSplitIndustryReference.getSplitCorrespondenceFilepath(globalRb));
+                //indOccSplitRef = new IndustryOccupationSplitIndustryReference(IndustryOccupationSplitIndustryReference.getSplitCorrespondenceFilepath(globalRb));
                 wlLogger.info("Reading alpha to beta file.");
                 TableDataSet alphaToBetaTable = loadTableDataSet(globalRb, "alpha2beta.file");
                 String alphaName = globalRb.getString("alpha.name");
@@ -209,8 +213,23 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
                 String path = ResourceUtil.getProperty(ptRb, "seam.labor.flows");
                 String suffix = ResourceUtil.getProperty(ptRb, "matrix.extension");
 
+                CSVFileReader reader = new CSVFileReader();
+                try {
+                    occupationFile = reader.readFile(new File(globalRb.getString("occupation.list.file")));
+                } catch (IOException e) {
+                   e.printStackTrace();
+                }
+                occupationLabels = occupationFile.getColumnAsString("occupation");
+                
+                try {
+                	industriesFile = reader.readFile(new File(globalRb.getString("industry.list.file")));
+                } catch (IOException e) {
+                   e.printStackTrace();
+                }
+                industryLabels = industriesFile.getColumnAsString("industry");
+                
                 logger.info("Reading labor flow matrices.");
-                for (String occupation : indOccSplitRef.getOccupationLabelsByIndex()) {
+                for (String occupation : occupationLabels){         //indOccSplitRef.getOccupationLabelsByIndex()) {
 
                     if (occupation.startsWith("No Occupation")
                             || occupation.startsWith("0_NoOccupation")) {
@@ -226,8 +245,7 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
                     alphaLaborFlows.addMatrix(matrix);
                 }
 
-                // The SkimReaderTask will read in the skims
-                // prior to any other task being asked to do work.
+                // The SkimReaderTask will read in the skims prior to any other task being asked to do work.
                 skims = SkimsInMemory.getSkimsInMemory();
                 
                 dataRead = true;                
@@ -261,12 +279,11 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
 
 
         //sort by occupation and segment
-        Arrays.sort(persons); // sorts persons by workSegment (0-8) and then
-                                // by occupation code (0-8)
+        Arrays.sort(persons); // sorts persons by workSegment (0-8) and then by occupation code (0-8)
 
         // We want to find all persons that match a particular occupation
         // pair and process those and then do the next occupation pair
-        int index = 0; // index will keep track of where we are in the person array
+        int index = 0; 					// index will keep track of where we are in the person array
         int nPersonsUnemployed = 0;
         int nPersonsWithWorkplace = 0;
         HashMap<String, int[]> workersByIndByTazId = new HashMap<String, int[]>(1000);
@@ -285,15 +302,14 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
                     nPersons++;
                     personList.add(persons[index]);
                     index++;
-                } else { // the person is unemployed - their occupation code may or may not be 0.
+                } else { 			// the person is unemployed - their occupation code may or may not be 0.
                     nPersonsUnemployed++;
-                    index++; // go to next person
+                    index++; 		// go to next person
                 }
                 if (index == persons.length)
                     break; // the last person has been processed.
             }
-            if (nPersons > 0) { // there were persons that matched the occ
-                                // pair (occ != 0)
+            if (nPersons > 0) { // there were persons that matched the occ pair (occ != 0)
 
                 wlLogger.debug(getName() + ", Finding Workplaces for " + nPersons + " persons");
                 calculateWorkplaceLocation(personList, alphaLaborFlows.getMatrix(occupation.name()));
@@ -345,7 +361,7 @@ public class WorkplaceLocationWorkerTaskSEAM extends MessageProcessingTask {
     public void storeResultsInHashMaps(ArrayList<PTPerson> personsBeingProcessed, HashMap<String, int[]> workersByIndByTazId,
                                        HashMap<String, Short> workplaceByPersonId ){
         for(PTPerson person : personsBeingProcessed){
-            String industryLabel = indOccSplitRef.getSplitIndustryLabelFromIndex(person.industry);
+            String industryLabel = industryLabels[person.industry];				//indOccSplitRef.getSplitIndustryLabelFromIndex(person.industry);
             int[] employmentByTaz = workersByIndByTazId.get(industryLabel);
             if(employmentByTaz == null){
                 employmentByTaz = new int[MAX_ZONE_NUMBER + 1];

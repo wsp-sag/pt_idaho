@@ -18,9 +18,12 @@ package com.pb.models.pt;
 
 import com.pb.common.datafile.CSVFileReader;
 import com.pb.common.datafile.TableDataSet;
+import com.pb.common.model.Alternative;
 import com.pb.common.model.LogitModel;
 import com.pb.common.util.ResourceUtil;
+
 import static com.pb.models.pt.TourModeParameters.NEST;
+
 import com.pb.models.pt.tourmodes.AutoDriver;
 import com.pb.models.pt.tourmodes.AutoPassenger;
 import com.pb.models.pt.tourmodes.Bike;
@@ -32,6 +35,7 @@ import com.pb.models.pt.tourmodes.WalkTransit;
 import com.pb.models.pt.util.SkimsInMemory;
 import com.pb.models.pt.util.TravelTimeAndCost;
 import com.pb.models.utils.Tracer;
+
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -434,7 +438,17 @@ public class TourModeChoiceModel extends TimedModel {
         try {
             chosenMode = (Mode) this.root.chooseElementalAlternative(random);
         } catch (Exception e) {
-            if (writeDebugFiles) {
+        	logger.debug("A tour mode could not be found. Assigned SR2 as the tour mode.");
+        	logger.debug("Summary:");
+        	logger.debug("HHID = " + currentPerson.hhID);
+        	logger.debug("MemberID = " + currentPerson.memberID);
+        	logger.debug("Begin Zone = " + currentTour.begin.location.zoneNumber);
+        	logger.debug("Primary Destination Zone = " + currentTour.primaryDestination.location.zoneNumber);
+        	logger.debug("End Zone = " + currentTour.end.location.zoneNumber);
+        	logger.debug("TourPurpose = "+currentTour.primaryDestination.activityPurpose);
+        	logger.debug("**********************");
+        	
+        	if (writeDebugFiles) {
                 //A tour mode could not be found.  Create a debug file in the debug directory with
                 //pertinant information and then assign 'SharedRide2' as the tour mode so that the
                 //program can continue running.  The PTDafMaster will check for the existence of debug files at the end

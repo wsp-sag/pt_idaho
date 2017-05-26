@@ -16,6 +16,8 @@
  */
 package com.pb.models.pt.ldt;
 
+import com.pb.common.datafile.CSVFileReader;
+import com.pb.common.datafile.TableDataSet;
 import com.pb.common.math.MathUtil;
 import com.pb.common.matrix.Matrix;
 import com.pb.common.matrix.MatrixCollection;
@@ -27,9 +29,10 @@ import com.pb.models.pt.*;
 import com.pb.models.pt.util.SkimsInMemory;
 
 import static com.pb.models.pt.ldt.LDInternalDestinationChoiceParameters.*;
-import com.pb.models.reference.IndustryOccupationSplitIndustryReference;
 import org.apache.log4j.Logger;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -58,6 +61,9 @@ public class LDInternalDestinationChoiceModel {
     private HashMap<Integer, Integer> districtToZone;
 
     public static SkimsInMemory skims;
+    
+    protected static TableDataSet industriesFile;
+    protected static String[] industryLabels;
     
     private Matrix zonalDistance;
 
@@ -89,11 +95,10 @@ public class LDInternalDestinationChoiceModel {
         this.modeChoiceModel = mcModel;
         readParameters();
         distanceThreshold = (float) ResourceUtil.getDoubleProperty(rb, "ldt.threshold.distance.in.miles");
-
-        //String occRefFile = globalRb.getString("industry.occupation.to.split.industry.correspondence");
-//        IndustryOccupationSplitIndustryReference indOccRef = new IndustryOccupationSplitIndustryReference(occRefFile);
-        IndustryOccupationSplitIndustryReference indOccRef = new IndustryOccupationSplitIndustryReference(IndustryOccupationSplitIndustryReference.getSplitCorrespondenceFilepath(globalRb));
-        hha = new LDInternalDestinationChoicePersonAttributes(indOccRef);
+        
+        String personIndustryFile = globalRb.getString("industry.list.file");
+        
+        hha = new LDInternalDestinationChoicePersonAttributes(personIndustryFile);
 
         buildModel(tazManager);
     }
@@ -118,10 +123,6 @@ public class LDInternalDestinationChoiceModel {
     public void buildModel(TazManager tazData) { 
 
         logger.info("Building Internal Destination Choice Model...");
-
-        //Matrix distance = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Dist");				// [AK]
-        //Matrix time = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Time");					// [AK]
-
         skims = SkimsInMemory.getSkimsInMemory();
         Matrix distance = skims.opDist;
         Matrix time = skims.opTime;
@@ -146,7 +147,6 @@ public class LDInternalDestinationChoiceModel {
             slat.setName(purpose.toString());
             slatMcLogsum.addMatrix(slat);
         }
-
     	// add the AMZs as alternatives to the models
         amzModel = new LogitModel("LD Destination Choice");
         defineAlternatives(tba, tazData);
@@ -286,10 +286,10 @@ public class LDInternalDestinationChoiceModel {
             LDAmz amz = (LDAmz) amzAlts[i].getAlternative();
             int numAvail = amz.setAvailableZones(zonalDistance,
                     distanceThreshold, tour.homeTAZ);
-            
             // if its not available, don't calculate more
             if (numAvail==0) {
                 amzAlts[i].setAvailability(false);
+                logger.debug("homeTAZ " + tour.homeTAZ + ", amz not available " + amz.ID);
             }
             else {
                 double impedance = calculateImpedance(hha, tour, amz);
@@ -362,14 +362,23 @@ public class LDInternalDestinationChoiceModel {
         resetAmzs(); 
         calculateUtility(hha, tour);
         
+//        logger.info("*********");
+//        for (int i=0; i<amzAlts.length; i++) {
+//        	logger.info("i value " + i);
+//        	LDAmz amz = (LDAmz) amzAlts[i].getAlternative();
+//        	logger.info("amz " + amz.ID + ", available ? " + amzAlts[i].isAvailable());
+//        }
+//        logger.info("*********");
+        
         LDAmz amz = null; 
         int t = 0; 
         try {
             amz = chooseAmz(random.nextDouble());
             t = amz.chooseDestination(hha, tour, random.nextDouble());
         } catch (ModelException e) {
-            logger.error("Error in " + LDInternalDestinationChoiceModel.class); 
-            hha.print(); 
+            //logger.error("Error in " + LDInternalDestinationChoiceModel.class); 
+            //hha.print(); 
+        	logger.warn("LDInternalDestinationChoiceModel, Setting destination to home taz.");
             t = hh.homeTaz; 
         }
     	

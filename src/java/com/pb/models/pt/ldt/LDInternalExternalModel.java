@@ -19,6 +19,7 @@ package com.pb.models.pt.ldt;
 import com.pb.common.datafile.CSVFileWriter;
 import com.pb.common.datafile.TableDataSet;
 import com.pb.common.matrix.Matrix;
+import com.pb.common.matrix.MatrixException;
 import com.pb.common.util.ResourceUtil;
 import com.pb.common.util.SeededRandom;
 import com.pb.models.pt.PTHousehold;
@@ -27,6 +28,7 @@ import com.pb.models.pt.TazManager;
 import com.pb.models.pt.util.SkimsInMemory;
 
 import static com.pb.models.pt.ldt.LDInternalExternalParameters.*;
+
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -114,7 +116,7 @@ public class LDInternalExternalModel {
 
     }
 
-        public void readExternalStations(ResourceBundle rb){					// added (ResourceBundle rb) as argument [AK]
+        public void readExternalStations(ResourceBundle rb){					
             // read the external station IDs
             TableDataSet externalStationData = ParameterReader.readParametersAsTable(globalRb,
                 "external.zonal.data");
@@ -138,13 +140,11 @@ public class LDInternalExternalModel {
      *
      */
     public void calculateTimeToExternalStations(TazManager tazManager) {
-
-        //Matrix time = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Time");				// [AK]
     	skims = SkimsInMemory.getSkimsInMemory();
     	Matrix time = skims.opTime;
         
         int[] tazId = tazManager.getExternalNumberArrayZeroIndexed(); 
-        
+         
         timeToExternalStation = new Hashtable<Integer, Float>(); 
         
         for (int i=0; i<tazId.length; i++) {
@@ -220,7 +220,7 @@ public class LDInternalExternalModel {
     }
     
     /**
-     * Chooses wheterh the destination is internal or external.  
+     * Chooses whether the destination is internal or external.  
      * 
      * @param tour The long-distance tour of interest.
      * @return     Choice of an internal or external destination.  
@@ -334,7 +334,7 @@ public class LDInternalExternalModel {
         tazManager.readData(globalRb, appRb);
         
         // update the employment
-        String empFileName = ResourceUtil.getProperty(appRb, "sdt.previous.employment");
+        String empFileName = ResourceUtil.getProperty(appRb, "sdt.employment");
         tazManager.updateWorkersFromSummary(empFileName);
         
         return tazManager; 

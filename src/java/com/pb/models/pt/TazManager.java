@@ -21,10 +21,13 @@ import com.pb.common.datafile.TableDataSet;
 import com.pb.common.model.ModelException;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.reference.IndustryOccupationSplitIndustryReference;
+
 import org.apache.log4j.Logger;
 
 import java.io.*;
+
 import static java.lang.Integer.parseInt;
+
 import java.util.*;
 
 /**
@@ -47,16 +50,17 @@ public abstract class TazManager implements Serializable, Cloneable {
 
     protected Taz[] tazs;
 
+    protected static TableDataSet empIndustriesFile;
+    protected static String[] empIndustryLabels;
+    
     // externals stores the external zone number index
     protected int[] externalsOne;
 
     protected int[] externalsZero;
 
-    String[] employmentCategories;
-
     /**
      * Default constructor. Initializes the tazData Hashtable.
-     * 
+     * employmentCategories
      */
     public TazManager() {
         tazData = new Hashtable<Integer, Taz>();
@@ -137,17 +141,18 @@ public abstract class TazManager implements Serializable, Cloneable {
             throw new RuntimeException("Must call 'setTazClassName(className)' method prior to reading data");
         }
 
-        //Read in the list of employment categories to set up hashmap for each zone.
-        //String refFile = globalRb.getString("industry.occupation.to.split.industry.correspondence");
-//        IndustryOccupationSplitIndustryReference indOccSplitRef = new IndustryOccupationSplitIndustryReference(refFile);
-        IndustryOccupationSplitIndustryReference indOccSplitRef = new IndustryOccupationSplitIndustryReference(IndustryOccupationSplitIndustryReference.getSplitCorrespondenceFilepath(globalRb));
-        employmentCategories = new String[indOccSplitRef.getSplitIndustryLabels().size()];
-        indOccSplitRef.getSplitIndustryLabels().toArray(employmentCategories);
-
         CSVFileReader reader = new CSVFileReader();
+        try {
+        	empIndustriesFile = reader.readFile(new File(globalRb.getString("emp.industry.list.file")));
+        } catch (IOException e) {
+           e.printStackTrace();
+        }
+        empIndustryLabels = empIndustriesFile.getColumnAsString("empIndustry");
+
         String fileName = ResourceUtil.getProperty(globalRb, "alpha2beta.file");
         String alphaName = globalRb.getString("alpha.name");
         String areaName = globalRb.getString("area.name");
+        String dcDistrictName = globalRb.getString(("destination.choice.district.name"));
         
         TableDataSet tazTable;
         logger.info("Reading TAZ data in " + fileName);
@@ -185,6 +190,8 @@ public abstract class TazManager implements Serializable, Cloneable {
             // implementation specific
 //            taz.workParkingCost = tazTable.getValueAt(row, "DayPark") * 100;
 //            taz.nonWorkParkingCost = tazTable.getValueAt(row, "HourPark") * 100;
+            
+            taz.dcDistrict = (int) tazTable.getValueAt(row, dcDistrictName);
 
             taz.households = synPopTable.getIndexedValueAt(taz.zoneNumber, "TotalHHs");
 
@@ -256,10 +263,12 @@ public abstract class TazManager implements Serializable, Cloneable {
             taz.zoneNumber = (int) tazTable.getValueAt(row, "ETAZ");
             taz.households = tazTable.getValueAt(row, "TotalHHS");
             taz.acres=1000; //a simple placeholder, has no effect other than to make the zone eligible for selection in d.c.
-            for (String label : employmentCategories) {
+            
+            for (String label : empIndustryLabels) {
                 float value = tazTable.getValueAt(row, label);
                 taz.employment.put(label, value);
             }
+            
             taz.isCordon = true;
             
             if (tazTable.containsColumn("AreaType")) {
@@ -400,64 +409,6 @@ public abstract class TazManager implements Serializable, Cloneable {
     }
 
 
-
-
-    /**
-     * Update the amount of employment by Taz.
-     *
-     *            of persons by taz
-     * @param persons PTPersons
-     * @param ref   Industry-Occupation-Split Industry correspondence file
-     */
-    public void updateWorkers(PTPerson[] persons, IndustryOccupationSplitIndustryReference ref) {
-        logger.info("Updating employment in the TAZs");
-        for (PTPerson person : persons) {
-            if (person.isWorker()) {
-                Taz taz = tazData.get((int) person.workTaz);
-
-                if (taz == null|| taz.zoneNumber==0) {
-                    logger.error("Unable to find Taz " + person.workTaz);
-                    break;
-                }
-
-                String industryLabel = ref.getSplitIndustryLabelFromIndex(person.industry);
-                if(taz.employment.containsKey(industryLabel)){
-                    float currentValue = taz.employment.get(industryLabel);
-                    taz.employment.put(industryLabel, (currentValue+1.0f));
-                }else{
-                    taz.employment.put(industryLabel, 1.0f);
-                }
-            }
-        }
-
-    }
-
-    /**
-     * Update the amount of employment by Taz.
-     *
-     *            of persons by taz
-     * @param workersByIndustryByTaz
-     */
-    public void updateWorkers(HashMap<String, int[]> workersByIndustryByTaz) {
-        logger.info("Updating employment in the TAZs");
-
-        Enumeration tazEnum = tazData.elements();
-        while (tazEnum.hasMoreElements()) {
-            Taz thisTaz = (Taz) tazEnum.nextElement();
-            if (!thisTaz.isCordon) {
-                for(String industry: workersByIndustryByTaz.keySet()){
-                    if(thisTaz.employment.containsKey(industry)){
-                        float currentValue = thisTaz.employment.get(industry);
-                        thisTaz.employment.put(industry, currentValue + (float)(workersByIndustryByTaz.get(industry)[thisTaz.getZoneNumber()]));
-                    }else{
-                        thisTaz.employment.put(industry, (float)(workersByIndustryByTaz.get(industry)[thisTaz.getZoneNumber()]));
-                    }
-
-                }
-            }
-        }
-    }
-
     /**
      * Get the taz data as an array, sorted in ascending order from lowest zone
      * number to highest zone number.
@@ -533,9 +484,7 @@ public abstract class TazManager implements Serializable, Cloneable {
     public static TableDataSet loadTableDataSet(ResourceBundle rb,
                                                 String fileName) {
         try {
-            logger.info("Looking for " + fileName + " in Resource Bundle");
             String tazFile = ResourceUtil.getProperty(rb, fileName);
-            logger.info("TazData: " + tazFile);
 
             CSVFileReader reader = new CSVFileReader();
             TableDataSet table = reader.readFile(new File(tazFile));
@@ -564,12 +513,12 @@ public abstract class TazManager implements Serializable, Cloneable {
             logger.warn("No alpha name was set, using 'TAZ' as the default");
         }
         BufferedWriter fileWriter;
-
+        
         try {
             fileWriter = new BufferedWriter(new FileWriter(new File(fileName)));
 
             fileWriter.write(alphaName);
-            for(String empCat : employmentCategories){
+            for(String empCat : empIndustryLabels){
                 fileWriter.write("," + empCat);
             }
             fileWriter.write(",Total\n");
@@ -578,7 +527,7 @@ public abstract class TazManager implements Serializable, Cloneable {
                 Taz taz = (Taz) tazEnum.nextElement();
                 double total = taz.getTotalEmployment();
                 String lineToWrite = "" + taz.zoneNumber;
-                for(String empCat : employmentCategories){
+                for(String empCat : empIndustryLabels){
                     Float tazEmp = taz.employment.get(empCat);
                     if(tazEmp != null)
                         lineToWrite += "," + tazEmp;

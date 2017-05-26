@@ -49,7 +49,7 @@ public class PTPerson implements Serializable, Comparable {
     public int memberID;
     public int hhID;
     public PersonType personType;
-
+    public int workOccupation;
     public short workTaz;
 
     public Pattern weekdayPattern;
@@ -145,6 +145,7 @@ public class PTPerson implements Serializable, Comparable {
         String string = "Person " + memberID + " = { ";
 
         string += " householdId: " + hhID + ",";
+        string += " homeTaz: " + homeTaz + ",";
         string += " employed: " + employed + ",";
         string += " student: " + student + ",";
         string += " age: " + age + ",";
@@ -350,13 +351,14 @@ public class PTPerson implements Serializable, Comparable {
     }
 
     /**
-     * Sort by segment.
+     * Sort by hometaz, segment and work_occupation.
      */
     public int compareTo(Object person) {
         PTPerson p = (PTPerson) person;
-        int cs = p.occupation.ordinal() + (p.segment * 100);
-        int compositeSegment = this.occupation.ordinal() + (this.segment * 100);
-
+        
+        int cs = (p.homeTaz * 100) + (p.segment * 10) + p.workOccupation;
+        int compositeSegment = (this.homeTaz * 100) + (this.segment * 10) + this.workOccupation;
+        
         if (compositeSegment < cs)
             return -1;
         else if (compositeSegment > cs)

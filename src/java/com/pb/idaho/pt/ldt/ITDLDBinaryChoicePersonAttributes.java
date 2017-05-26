@@ -22,7 +22,7 @@ import com.pb.models.pt.ldt.LDBinaryChoicePersonAttributes;
 import com.pb.idaho.pt.PTOccupation;
 
 /**
- * TODO Need to set the occupation flags specific to ITD here!
+ * TODO Need to set the occupation flags here!
  * 
  * 
  * @author Erhardt
@@ -71,8 +71,17 @@ public class ITDLDBinaryChoicePersonAttributes extends LDBinaryChoicePersonAttri
 
             persid = p.memberID; 
             
-            if (p.occupation == PTOccupation.PROFESSIONAL) prof_sci=true; 
-            
+            if (p.occupation == PTOccupation.PROFESSIONAL)
+            	prof_sci=true;
+            else if (p.occupation == PTOccupation.POST_SECONDARY_ED)
+            	college=true;
+            else if (p.occupation == PTOccupation.HEALTH)
+            	prof_sci=true;
+            else if (p.occupation == PTOccupation.OTHER)
+            	other=true;
+            else if (p.occupation == PTOccupation.NONE)
+            	other=true;
+
             if(p.age>=18 && p.student)
                 college=true;
         }
@@ -93,7 +102,6 @@ public class ITDLDBinaryChoicePersonAttributes extends LDBinaryChoicePersonAttri
             occ_other=1;
         if(college)
             schtype_college=1;
-
     }
 
     /**
@@ -117,8 +125,40 @@ public class ITDLDBinaryChoicePersonAttributes extends LDBinaryChoicePersonAttri
         age=0;
         age_sq=0;
 
-        if (p.occupation == PTOccupation.PROFESSIONAL) occ_prof_sci=1;        
-
+        boolean ag_farm_mine=false;
+        boolean manufactur=false;
+        boolean trans_comm=false;
+        boolean wholesale=false;
+        boolean finance_re=false;
+        boolean prof_sci=false;
+        boolean other=false;
+        boolean college=false;
+        
+        if (p.occupation == PTOccupation.PROFESSIONAL)
+        	prof_sci=true;
+        else if (p.occupation == PTOccupation.POST_SECONDARY_ED)
+        	college=true;
+        else if (p.occupation == PTOccupation.HEALTH)
+        	prof_sci=true;
+        else if (p.occupation == PTOccupation.OTHER)
+        	other=true;
+        else if (p.occupation == PTOccupation.NONE)
+        	other=true;
+        
+        if(ag_farm_mine)
+            occ_ag_farm_mine=1;
+        if(manufactur)
+            occ_manufactur=1;
+        if(trans_comm)
+            occ_trans_comm=1;
+        if(wholesale)
+            occ_wholesale=1;
+        if(finance_re)
+            occ_finance_re=1;
+        if(prof_sci)
+            occ_prof_sci=1;
+        if(other)
+            occ_other=1;
         if(p.age>=18 && p.student)
             schtype_college=1;
 

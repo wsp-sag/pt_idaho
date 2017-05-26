@@ -63,12 +63,7 @@ public class ITDLDExternalDestinationModel  extends LDExternalDestinationModel {
      * @param ptRb
      */
     public void initialize(ResourceBundle globalRb, ResourceBundle ptRb) {
-
         super.initialize(globalRb, ptRb);        
-        
-        // get the time matrix
-        //time = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Time");					//was read in buildModel() as well [AK]
-        
         readParameters(); 
         buildModel(); 
     }
@@ -93,13 +88,11 @@ public class ITDLDExternalDestinationModel  extends LDExternalDestinationModel {
     private void buildModel() {
 
         logger.info("Building External Destination Choice Model...");
-
-        //time = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Time");					[AK]
         skims = SkimsInMemory.getSkimsInMemory();
         time = skims.opTime;
         
         TableDataSet externalStationData = ParameterReader.readParametersAsTable(ptRb,
-                "ldt.external.station.volumes");
+                "ldt.external.station.data");
         alts = new ConcreteAlternative[externalStationData.getRowCount()];
         volume = new float[externalStationData.getRowCount()]; 
         model = new LogitModel("LD External Destination Choice");

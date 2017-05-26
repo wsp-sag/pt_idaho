@@ -19,7 +19,9 @@ package com.pb.models.pt.ldt;
 import java.io.Serializable;
 
 import com.pb.models.pt.Taz;
+
 import static com.pb.models.pt.ldt.LDInternalDestinationChoiceParameters.*;
+
 import org.apache.log4j.Logger;
 
 /** 
@@ -114,290 +116,83 @@ public class LDTaz implements Serializable {
             float k_12      = 0;
             float highered  = 0;
             float govt      = 0;
+            float other     = 0;
             
-            // set the employement totals, depending on whether the file contains OSMP or TLUMIP definitions
-            //  now might also be new TLUMIP AA split industries instead
+            // set the employment totals
             
-            // agriculture
-            if (taz.employment.containsKey("Agriculture Forestry and Fisheries Office")
-                    && taz.employment.containsKey("Agriculture Forestry and Fisheries Production")) {
-                agforfish = taz.employment.get("Agriculture Forestry and Fisheries Office")
-                        + taz.employment.get("Agriculture Forestry and Fisheries Production");
-            } else if (taz.employment.containsKey("AGRICULTURE AND MINING-Agriculture")
-                    && taz.employment.containsKey("AGRICULTURE AND MINING-Office")
-                    && taz.employment.containsKey("FORESTRY AND LOGGING")) {
-                agforfish = taz.employment.get("AGRICULTURE AND MINING-Agriculture")
-                    + taz.employment.get("AGRICULTURE AND MINING-Office")
-                    + taz.employment.get("FORESTRY AND LOGGING");
-            } else if (taz.employment.containsKey("RES_agmin_ag")
-                    && taz.employment.containsKey("RES_forst_log")
-                    && taz.employment.containsKey("RES_offc_off")) {
-                agforfish = taz.employment.get("RES_agmin_ag")
-                    + taz.employment.get("RES_forst_log")
-                    + taz.employment.get("RES_offc_off");
-            }
-
-
-            // metals
-            if (taz.employment.containsKey("Primary Metal Products Production")
-                    && taz.employment.containsKey("Primary Metal Products Office")) {
-                metal = taz.employment.get("Primary Metal Products Production")
-                        + taz.employment.get("Primary Metal Products Office");
-            }
+            // agriculture 
+            if(taz.employment.containsKey("ldtAgriMining"))
+            	agforfish = taz.employment.get("ldtAgriMining");
+            else if(taz.employment.containsKey("AgforF"))
+            	agforfish = taz.employment.get("AgforF");
             
-            // light industrial
-            if (taz.employment.containsKey("Light Industry Production")
-                    && taz.employment.containsKey("Light Industry Office")) {
-                lightind = taz.employment.get("Light Industry Production")
-                        + taz.employment.get("Light Industry Office");
-            } else if(taz.employment.containsKey("COMMUNICATIONS AND UTILITIES-Light Industry")   
-                    && taz.employment.containsKey("COMMUNICATIONS AND UTILITIES-Office")
-                    && taz.employment.containsKey("ELECTRONICS AND INSTRUMENTS-Light Industry")
-                    && taz.employment.containsKey("ELECTRONICS AND INSTRUMENTS-Office")
-                    && taz.employment.containsKey("FOOD PRODUCTS-Light Industry")
-                    && taz.employment.containsKey("FOOD PRODUCTS-Office")
-                    && taz.employment.containsKey("LUMBER AND WOOD PRODUCTS-Office")
-                    && taz.employment.containsKey("OTHER DURABLES-Heavy Industry")
-                    && taz.employment.containsKey("OTHER DURABLES-Light Industry")
-                    && taz.employment.containsKey("OTHER DURABLES-Office")
-                    && taz.employment.containsKey("OTHER NON-DURABLES-Light Industry")
-                    && taz.employment.containsKey("OTHER NON-DURABLES-Office")
-                    && taz.employment.containsKey("PULP AND PAPER-Office")) {            
-                lightind = taz.employment.get("COMMUNICATIONS AND UTILITIES-Light Industry")   
-                    + taz.employment.get("COMMUNICATIONS AND UTILITIES-Office")
-                    + taz.employment.get("ELECTRONICS AND INSTRUMENTS-Light Industry")
-                    + taz.employment.get("ELECTRONICS AND INSTRUMENTS-Office")
-                    + taz.employment.get("FOOD PRODUCTS-Light Industry")
-                    + taz.employment.get("FOOD PRODUCTS-Office")
-                    + taz.employment.get("LUMBER AND WOOD PRODUCTS-Office")
-                    + taz.employment.get("OTHER DURABLES-Heavy Industry")
-                    + taz.employment.get("OTHER DURABLES-Light Industry")
-                    + taz.employment.get("OTHER DURABLES-Office")
-                    + taz.employment.get("OTHER NON-DURABLES-Light Industry")
-                    + taz.employment.get("OTHER NON-DURABLES-Office")
-                    + taz.employment.get("PULP AND PAPER-Office");            
-            } else if(taz.employment.containsKey("ENGY_offc_off")
-                    && taz.employment.containsKey("MFG_food_li")
-                    && taz.employment.containsKey("MFG_htec_li")
-                    && taz.employment.containsKey("MFG_hvtw_li")
-                    && taz.employment.containsKey("MFG_offc_off")
-                    && taz.employment.containsKey("INFO_info_off_li")
-                    && taz.employment.containsKey("INFO_info_off")
-                    && taz.employment.containsKey("UTL_othr_off_li")
-                    && taz.employment.containsKey("UTL_othr_off")) {
-                lightind = taz.employment.get("ENGY_offc_off")
-                    + taz.employment.get("MFG_food_li")
-                    + taz.employment.get("MFG_htec_li")
-                    + taz.employment.get("MFG_hvtw_li")
-                    + taz.employment.get("MFG_offc_off")
-                    + taz.employment.get("INFO_info_off_li")
-                    + taz.employment.get("INFO_info_off")
-                    + taz.employment.get("UTL_othr_off_li")
-                    + taz.employment.get("UTL_othr_off");
-            }  
-
+            // transportation
+            if(taz.employment.containsKey("ldtTransportation"))
+            	transp = taz.employment.get("ldtTransportation");
+            else if(taz.employment.containsKey("TrawhseF"))
+            	transp = taz.employment.get("TrawhseF");
             
-            // heavy industry
-            if (taz.employment.containsKey("Heavy Industry Production")
-                    && taz.employment.containsKey("Heavy Industry Office")) {
-                hvyind = taz.employment.get("Heavy Industry Production")
-                        + taz.employment.get("Heavy Industry Office");
-            } else if (taz.employment.containsKey("FOOD PRODUCTS-Heavy Industry")
-                    && taz.employment.containsKey("LUMBER AND WOOD PRODUCTS-Heavy Industry")
-                    && taz.employment.containsKey("OTHER NON-DURABLES-Heavy Industry")
-                    && taz.employment.containsKey("PULP AND PAPER-Heavy Industry")) {
-                hvyind = taz.employment.get("FOOD PRODUCTS-Heavy Industry")
-                    + taz.employment.get("LUMBER AND WOOD PRODUCTS-Heavy Industry")
-                    + taz.employment.get("OTHER NON-DURABLES-Heavy Industry")
-                    + taz.employment.get("PULP AND PAPER-Heavy Industry");
-            } else if (taz.employment.containsKey("ENGY_elec_hi")
-                    && taz.employment.containsKey("ENGY_ngas_hi")
-                    && taz.employment.containsKey("ENGY_ptrl_hi")
-                    && taz.employment.containsKey("MFG_food_hi")
-                    && taz.employment.containsKey("MFG_htec_hi")
-                    && taz.employment.containsKey("MFG_hvtw_hi")
-                    && taz.employment.containsKey("MFG_lvtw_hi")
-                    && taz.employment.containsKey("MFG_wdppr_hi")) {
-                hvyind = taz.employment.get("ENGY_elec_hi")
-                    + taz.employment.get("ENGY_ngas_hi")
-                    + taz.employment.get("ENGY_ptrl_hi")
-                    + taz.employment.get("MFG_food_hi")
-                    + taz.employment.get("MFG_htec_hi")
-                    + taz.employment.get("MFG_hvtw_hi")
-                    + taz.employment.get("MFG_lvtw_hi")
-                    + taz.employment.get("MFG_wdppr_hi");
-            }   
+            // construction
+            if(taz.employment.containsKey("ldtConst"))
+            	construct = taz.employment.get("ldtConst");
+            else if(taz.employment.containsKey("ConstrF"))
+            	construct = taz.employment.get("ConstrF");
             
-            // transportation equipment
-            if (taz.employment.containsKey("Transportation Equipment Production")
-                    && taz.employment.containsKey("Transportation Equipment Office")) {
-                transp = taz.employment.get("Transportation Equipment Production")
-                        + taz.employment.get("Transportation Equipment Office");
-            }
-            
-            // wholesale 
-            if (taz.employment.containsKey("Wholesale Production")
-                    && taz.employment.containsKey("Wholesale Office")) {
-                wholesale = taz.employment.get("Wholesale Production")
-                        + taz.employment.get("Wholesale Office");
-            } else if (taz.employment.containsKey("WHOLESALE TRADE-Office")
-                    && taz.employment.containsKey("WHOLESALE TRADE-Warehouse")) {
-                wholesale = taz.employment.get("WHOLESALE TRADE-Office")
-                        + taz.employment.get("WHOLESALE TRADE-Warehouse");
-            } else if (taz.employment.containsKey("WHSL_whsl_ware")
-                    && taz.employment.containsKey("WHSL_offc_off")) {
-                wholesale = taz.employment.get("WHSL_whsl_ware")
-                        + taz.employment.get("WHSL_offc_off");
-            }
-
+            // hotel
+            if(taz.employment.containsKey("ldtHotel"))
+            	hotel = taz.employment.get("ldtHotel");
+            else if(taz.employment.containsKey("FoodlodgF"))
+            	hotel = taz.employment.get("FoodlodgF");
             
             // retail
-            if (taz.employment.containsKey("Retail Production")
-                    && taz.employment.containsKey("Retail Office")) {
-                retail = taz.employment.get("Retail Production")
-                        + taz.employment.get("Retail Office");
-            } else if (taz.employment.containsKey("RETAIL TRADE-Retail")
-                    && taz.employment.containsKey("RETAIL TRADE-Office")) {
-                retail = taz.employment.get("RETAIL TRADE-Retail")
-                        + taz.employment.get("RETAIL TRADE-Office");
-            } else if (taz.employment.containsKey("RET_auto_ret")
-                    && taz.employment.containsKey("RET_stor_ret")
-                    && taz.employment.containsKey("RET_stor_off")
-                    && taz.employment.containsKey("RET_nstor_off")) {
-                retail = taz.employment.get("RET_auto_ret")
-                        + taz.employment.get("RET_stor_ret")
-                        + taz.employment.get("RET_stor_off")
-                        + taz.employment.get("RET_nstor_off");
+            if(taz.employment.containsKey("ldtRetail"))
+            	retail = taz.employment.get("ldtRetail");
+            else if(taz.employment.containsKey("RetailF"))
+            	retail = taz.employment.get("RetailF");
+            
+            // health
+            if(taz.employment.containsKey("ldtHealth"))
+            	health = taz.employment.get("ldtHealth");
+            else if(taz.employment.containsKey("HealthF"))
+            	health = taz.employment.get("HealthF");
+            
+            // other services
+            if(taz.employment.containsKey("ldtOtherService"))
+            	othsvc = taz.employment.get("ldtOtherService");
+            else if(taz.employment.containsKey("OtherF"))
+            	othsvc = taz.employment.get("OtherF");
+            
+            // govt
+            if(taz.employment.containsKey("ldtPublicAdmin"))
+            	govt = taz.employment.get("ldtPublicAdmin");
+            else if(taz.employment.containsKey("PublicF"))
+            	govt = taz.employment.get("PublicF");
+            
+            
+            // education
+            if(taz.employment.containsKey("ldtEducation"))
+            	highered = taz.employment.get("ldtEducation");
+            else if(taz.employment.containsKey("EduHigh") && taz.employment.containsKey("EduK12")){
+            	highered = taz.employment.get("EduHigh");
+            	k_12 = taz.employment.get("EduK12");
             }
             
-            // hotel 
-            if (taz.employment.containsKey("Hotel and Accommodation")) {
-                hotel = taz.employment.get("Hotel and Accommodation");
-            } else if (taz.employment.containsKey("ACCOMMODATIONS")) {
-                hotel = taz.employment.get("ACCOMMODATIONS");
-            } else if (taz.employment.containsKey("HOSP_acc_acc")) {
-                hotel = taz.employment.get("HOSP_acc_acc");
-            }     
-                     
-            // construction
-            if (taz.employment.containsKey("Construction")) {
-                construct = taz.employment.get("Construction");
-            } else if (taz.employment.containsKey("CONSTRUCTION")) {
-                construct = taz.employment.get("CONSTRUCTION");
-            } else if (taz.employment.containsKey("CNST_main_xxx")
-                    && taz.employment.containsKey("CNST_nres_xxx")
-                    && taz.employment.containsKey("CNST_othr_xxx")
-                    && taz.employment.containsKey("CNST_res_xxx")
-                    && taz.employment.containsKey("CNST_offc_off")) {
-                construct = taz.employment.get("CNST_main_xxx")
-                        + taz.employment.get("CNST_nres_xxx")
-                        + taz.employment.get("CNST_othr_xxx")
-                        + taz.employment.get("CNST_res_xxx")
-                        + taz.employment.get("CNST_offc_off");
-            }
-
-                        
-            // health 
-            if (taz.employment.containsKey("Health Care")) {
-                health = taz.employment.get("Health Care");
-            } else if (taz.employment.containsKey("HEALTH SERVICES-Office") 
-                    && taz.employment.containsKey("HEALTH SERVICES-Institutional") 
-                    && taz.employment.containsKey("HEALTH SERVICES-Hospital")) {
-                health = taz.employment.get("HEALTH SERVICES-Office") 
-                    + taz.employment.get("HEALTH SERVICES-Institutional") 
-                    + taz.employment.get("HEALTH SERVICES-Hospital");
-            } else if (taz.employment.containsKey("HLTH_hosp_hosp")
-                    && taz.employment.containsKey("HLTH_care_inst")
-                    && taz.employment.containsKey("HLTH_othr_off_li")) {
-                health = taz.employment.get("HLTH_hosp_hosp")
-                    + taz.employment.get("HLTH_care_inst")
-                    + taz.employment.get("HLTH_othr_off_li");
-            }
-
+            // wholesale
+            if(taz.employment.containsKey("ldtWholesale"))
+            	wholesale = taz.employment.get("ldtWholesale");
+            else if(taz.employment.containsKey("WhlsaleF"))
+            	wholesale = taz.employment.get("WhlsaleF");
             
-            // transport
-            if (taz.employment.containsKey("Transportation Handling")) {
-                trnhndl = taz.employment.get("Transportation Handling");
-            } else if (taz.employment.containsKey("TRANSPORT-Office") 
-                    && taz.employment.containsKey("TRANSPORT-Depot")) {
-                trnhndl = taz.employment.get("TRANSPORT-Office") 
-                    + taz.employment.get("TRANSPORT-Depot");
-            } else if (taz.employment.containsKey("TRNS_trns_ware")
-                    && taz.employment.containsKey("TRNS_trns_off")) {
-                trnhndl = taz.employment.get("TRNS_trns_ware")
-                    + taz.employment.get("TRNS_trns_off");
-            }
-
+            // other
+            if(taz.employment.containsKey("ldtOther"))
+            	other = taz.employment.get("ldtOther");
             
-            // other serivices
-            if (taz.employment.containsKey("Other Services")) {
-                othsvc = taz.employment.get("Other Services");
-            } else if (taz.employment.containsKey("FIRE BUSINESS AND PROFESSIONAL SERVICES")  
-                    && taz.employment.containsKey("PERSONAL AND OTHER SERVICES AND AMUSEMENTS")
-                    && taz.employment.containsKey("HOMEBASED SERVICES")) {
-                othsvc = taz.employment.get("FIRE BUSINESS AND PROFESSIONAL SERVICES")  
-                    + taz.employment.get("PERSONAL AND OTHER SERVICES AND AMUSEMENTS")
-                    + taz.employment.get("HOMEBASED SERVICES");
-            } else if (taz.employment.containsKey("FIRE_fnin_off")
-                    && taz.employment.containsKey("FIRE_real_off")
-                    && taz.employment.containsKey("ENT_ent_ret")
-                    && taz.employment.containsKey("HOSP_eat_ret_acc")
-                    && taz.employment.containsKey("SERV_tech_off")
-                    && taz.employment.containsKey("SERV_site_li")
-                    && taz.employment.containsKey("SERV_home_xxx")
-                    && taz.employment.containsKey("SERV_bus_off")
-                    && taz.employment.containsKey("SERV_nonp_off_inst")
-                    && taz.employment.containsKey("SERV_stor_ret")) {
-                othsvc = taz.employment.get("FIRE_fnin_off")
-                    + taz.employment.get("FIRE_real_off")
-                    + taz.employment.get("ENT_ent_ret")
-                    + taz.employment.get("HOSP_eat_ret_acc")
-                    + taz.employment.get("SERV_tech_off")
-                    + taz.employment.get("SERV_site_li")
-                    + taz.employment.get("SERV_home_xxx")
-                    + taz.employment.get("SERV_bus_off")
-                    + taz.employment.get("SERV_nonp_off_inst")
-                    + taz.employment.get("SERV_stor_ret");
-            }
-
+            // hvyind
+            if(taz.employment.containsKey("ldtManu"))
+            	hvyind = taz.employment.get("ldtManu");
+            else if(taz.employment.containsKey("ManufF"))
+            	hvyind = taz.employment.get("ManufF");
             
-
-            // grade school 
-            if (taz.employment.containsKey("Gradeschool Education")) {
-                k_12 = taz.employment.get("Gradeschool Education");
-            } else if (taz.employment.containsKey("LOWER EDUCATION-Grade School")
-                    && taz.employment.containsKey("LOWER EDUCATION-Office")) {
-                k_12 = taz.employment.get("LOWER EDUCATION-Grade School") 
-                    + taz.employment.get("LOWER EDUCATION-Office");
-            } else if (taz.employment.containsKey("K12_k12_k12")
-                    && taz.employment.containsKey("K12_k12_off")) {
-                k_12 = taz.employment.get("K12_k12_k12")
-                    + taz.employment.get("K12_k12_off");
-            }
-
-            
-            // higher ed
-            if (taz.employment.containsKey("Post-Secondary Education")) {
-                highered = taz.employment.get("Post-Secondary Education");
-            } else if (taz.employment.containsKey("HIGHER EDUCATION")) {
-                highered = taz.employment.get("HIGHER EDUCATION");
-            } else if (taz.employment.containsKey("HIED_hied_off_inst")) {
-                highered = taz.employment.get("HIED_hied_off_inst");
-            }
-                        
-            // government
-            if (taz.employment.containsKey("Government and Other")) {
-                govt = taz.employment.get("Government and Other");
-            } else if(taz.employment.containsKey("GOVERNMENT ADMINISTRATION-Office") 
-                    && taz.employment.containsKey("GOVERNMENT ADMINISTRATION-Government Support")) {
-                govt = taz.employment.get("GOVERNMENT ADMINISTRATION-Office") 
-                    + taz.employment.get("GOVERNMENT ADMINISTRATION-Government Support");
-            } else if(taz.employment.containsKey("GOV_admn_gov")
-                    && taz.employment.containsKey("GOV_offc_off")) {
-                govt = taz.employment.get("GOV_admn_gov")
-                    + taz.employment.get("GOV_offc_off");
-            }
-
                         
             int p = purpose.ordinal(); 
             size += params[p][SIZEHOUSEHOLDS]          * taz.getHouseholds(); 
@@ -417,9 +212,32 @@ public class LDTaz implements Serializable {
             size += params[p][SIZESAMEINDUSTRYEMP]     * othsvc    * hha.othsvc;
             size += params[p][SIZESAMEINDUSTRYEMP]     * k_12      * hha.k_12;
             size += params[p][SIZESAMEINDUSTRYEMP]     * highered  * hha.highered;
+            size += params[p][SIZESAMEINDUSTRYEMP]     * other     * hha.other;
             size += params[p][SIZESAMEINDUSTRYEMP]     * govt      * hha.govt;
             size += params[p][SIZEHOTELEMPIFOVERNIGHT] * hotel     * hha.completeTour;
             size += params[p][SIZEHIGHEREDEMPIFCOL]    * highered  * hha.collegeStudent;
+            
+            logger.debug("params[SIZEHOUSEHOLDS] " + params[p][SIZEHOUSEHOLDS] + ", taz.getHouseholds " + taz.getHouseholds()); 
+            logger.debug("params[SIZETOTEMP] " + params[p][SIZETOTEMP] + ", taz.getTotalEmployment " + taz.getTotalEmployment());
+            logger.debug("params[SIZEGOVTEMP] " + params[p][SIZEGOVTEMP] + ", govt " + govt);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", agforfish " + agforfish + ", hha.agforfish " + hha.agforfish);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", metal " + metal     + ", hha.metal " + hha.metal);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", lightind " + lightind  + ", hha.lightind " + hha.lightind);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", hvyind " + hvyind    + ", hha.hvyind " + hha.hvyind);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", transp " + transp    + ", hha.transp " + hha.transp);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", wholesale " + wholesale + ", hha.wholesale " + hha.wholesale);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", retail " + retail    + ", hha.retail " + hha.retail);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", hotel " + hotel     + ", hha.hotel " + hha.hotel);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", construct " + construct + ", hha.construct " + hha.construct);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", health " + health    + ", hha.health " + hha.health);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", trnhndl " + trnhndl   + ", hha.trnhndl " + hha.trnhndl);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", othsvc " + othsvc    + ", hha.othsvc " + hha.othsvc);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", k_12 " + k_12      + ", hha.k_12 " + hha.k_12);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", highered " + highered  + ", hha.highered " + hha.highered);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", other " + other     + ", hha.other " + hha.other);
+            logger.debug("params[SIZESAMEINDUSTRYEMP] " + params[p][SIZESAMEINDUSTRYEMP] + ", govt " + govt      + ", hha.govt " + hha.govt);
+            logger.debug("params[SIZEHOTELEMPIFOVERNIGHT] " + params[p][SIZEHOTELEMPIFOVERNIGHT] + ", hotel " +  hotel + ", hha.completeTour " +  hha.completeTour);
+            logger.debug("params[SIZEHIGHEREDEMPIFCOL] " + params[p][SIZEHIGHEREDEMPIFCOL]  + ", highered " + highered + ", hha.collegeStudent " + hha.collegeStudent);
             
             // set the current values so we don't have to re-calculate
             currentHha = hha;

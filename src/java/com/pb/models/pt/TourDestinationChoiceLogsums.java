@@ -23,6 +23,7 @@ import com.pb.common.matrix.Matrix;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.pt.util.SkimsInMemory;
 import com.pb.models.utils.Tracer;
+
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -168,12 +169,11 @@ public class TourDestinationChoiceLogsums {
             tour.primaryDestination.activityPurpose = purpose;
 
             float logsum = (float) model.calculateUtility(household, person,
-                    tour, modeChoiceLogsums, distance, time);
+            		tour, modeChoiceLogsums, distance, time);
 
             if (Float.isInfinite(logsum) || Float.isNaN(logsum)) {
-                logsum = -999;
+            	logsum = -999;
             }
-
             logsums[count] = logsum;
             ++count;
         }

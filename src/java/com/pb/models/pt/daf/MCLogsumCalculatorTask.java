@@ -140,8 +140,6 @@ public class MCLogsumCalculatorTask  extends MessageProcessingTask {
         sendTo(matrixWriterQueue, msg);
     }
 
-
-
     private void cleanup(){
         mcLogger = null;
         skims = null;

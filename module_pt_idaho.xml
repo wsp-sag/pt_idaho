@@ -24,6 +24,7 @@
     <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/or124.jar"/>
     <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/dx.jar"/>
     <pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/cajo.jar"/>
+  	<pathelement location="${module.pt_idaho.basedir}/../../cmf/common-base/lib/omx.jar"/>
     <pathelement location="${common-daf-v2.output.dir}"/>
     <pathelement location="${utils.output.dir}"/>
     <pathelement location="${reference.output.dir}"/>

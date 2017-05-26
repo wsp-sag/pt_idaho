@@ -315,7 +315,7 @@ public class RunLDTModels {
         tazManager.readData(globalRb, appRb);
         
         // update the employment
-        String empFileName = ResourceUtil.getProperty(appRb, "sdt.previous.employment");
+        String empFileName = ResourceUtil.getProperty(appRb, "sdt.employment");
         tazManager.updateWorkersFromSummary(empFileName);
 
     }

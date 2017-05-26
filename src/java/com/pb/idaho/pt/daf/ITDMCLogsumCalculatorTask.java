@@ -54,27 +54,13 @@ public class ITDMCLogsumCalculatorTask extends MCLogsumCalculatorTask {
         synchronized (localLock) {
             if (!localInitialized) {
                 mcLogger.info(getName() + ", Initializing ITD version of object");
-                
-                /* [AK]
-                matricesToCollapse = ResourceUtil.getList(ptRb,
-                        "sdt.matrices.for.pecas");
-                
-                //Create an alphaToBeta object to do the alpha to beta squeeze
-                String fileName = ResourceUtil.getProperty(globalRb, "alpha2beta.file");
-                String alphaName = globalRb.getString("alpha.name");
-                String betaName = globalRb.getString("beta.name");
-                logger.info("Reading " + fileName);
-                a2bCorrespondence = new AlphaToBeta(new File(fileName), alphaName, betaName);
-                */
-                
                 localInitialized = true;
                 mcLogger.info(getName() + ", Finished initializing ITD child object");
             } 
 
             //initialize price converter
             PriceConverter.getInstance(ptRb,globalRb);
-
-            //wzEzUtil = new WorldZoneExternalZoneUtil(globalRb);				[AK]
+            
             matrixCompression = new MatrixCompression(a2bCorrespondence);
        }
     }
@@ -84,27 +70,8 @@ public class ITDMCLogsumCalculatorTask extends MCLogsumCalculatorTask {
                 + " message from=" + msg.getSender() + ". MsgNum: " + msg.getIntValue("msgNum"));
         ActivityPurpose purpose = (ActivityPurpose)(msg.getValue("purpose"));
         Integer segment = (Integer) msg.getValue("segment");
-        String purSeg = ActivityPurpose.getActivityString(purpose)
-                + segment.toString();
         Matrix logsum = createMCLogsums(purpose, segment);
         sendMCLogsumToWriter(msg, logsum);
-        
-        /* [AK]
-        // Collapse the required matrices
-        if (matricesToCollapse.contains(purSeg)) {
-            mcLogger.info(getName()
-                + ", Collapsing ModeChoiceLogsumMatrix for purpose: "
-                + purpose + " segment: " + segment);
-            Matrix squeezed = collapseMCLogsums(logsum, matrixWriterQueue);
-
-            // Sending message to TaskMasterQueue
-            Message collapsedMessage = createMessage();
-            collapsedMessage.setId(MessageID.MC_LOGSUMS_COLLAPSED);
-            collapsedMessage.setValue("matrix", squeezed);
-            mcLogger.info(getName() + ", Sending " + squeezed.getName() + " to " +  matrixWriterQueue);
-            sendTo(matrixWriterQueue, collapsedMessage);
-        }
-		*/
     }
 
     /**

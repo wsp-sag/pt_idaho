@@ -17,12 +17,16 @@
 package com.pb.models.pt.daf;
 
 import com.pb.common.daf.*;
+import com.pb.common.datafile.CSVFileReader;
+import com.pb.common.datafile.TableDataSet;
 import com.pb.common.util.BooleanLock;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.pt.*;
 import com.pb.models.utils.StatusLogger;
+
 import org.apache.log4j.Logger;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -56,19 +60,15 @@ public class PTMasterTask extends Task {
     private ArrayList<String> dcWorkQueues = new ArrayList<String>();
     private ArrayList<String> msWorkQueues = new ArrayList<String>();
 
-    ResourceBundle ptdafRb; // this will be read in after the scenarioName has
-                            // been read in from RunParams.txt
+    ResourceBundle ptdafRb; // this will be read in after the scenarioName has been read in from RunParams.txt
 
-    ResourceBundle ptRb; // this will be read in after pathToPtRb has been
-                            // read in from RunParams.txt
+    ResourceBundle ptRb; // this will be read in after pathToPtRb has been read in from RunParams.txt
 
-    ResourceBundle globalRb; // this will be read in after   pathToGlobalRb has
-                                // been read in from RunParams.txt
-
+    ResourceBundle globalRb; // this will be read in after   pathToGlobalRb has been read in from RunParams.txt
+   
     private PTDataReader reader;
     private VisitorDataReader vmReader;
     private TazManager tazManager;
-    //float incomeConversionFactor;
     private PriceConverter priceConverter;
 
     //These variables help us keep track of what work has been done and is left to do.
@@ -77,7 +77,6 @@ public class PTMasterTask extends Task {
     static int TOTAL_DCLOGSUMS = (ActivityPurpose.values().length - 2) * PTHousehold.SEGMENTS; // no logsums for work and home purposes
 
     static int NUM_HOUSEHOLDS;
-    //static int NUM_VISITOR_HH;
     int[][] hhInfo;
     int [] visitorsInfo;
     int numHhsProcessed;
@@ -85,13 +84,24 @@ public class PTMasterTask extends Task {
     static int NUM_PERSONS;
     static int NUM_VISITOR_PERSONS;
     int[] personHhIds;
-    byte[] memberIds;
+    int[] memberIds;
     short[] workplaces;
-    int index = 0;
-
+    int index;
+    int countZones;
+    int totalZones;
+    private double[] shadowPrice;
+    private int[] calculatedEmpByTaz;
+    private double[] pctDiffEmployment;
+    private double[] absDiffEmployment;
+    private HashMap<Integer, double[]> shadowPriceByIter;
+    private boolean converged = false; 
+    private int maxIterations;			// maximum number of iterations of shadow pricing
+    private double maxTolerance;		// allowed tolerance for convergence check of shadow price. 
+    private double pctEpsilon;			// epsilon for allowed pct difference in employment (target vs calculated)
+    private double absEpsilon;		    // epsilon for allowed abs difference in employment (target vs calculated) 
     int sampleRate;
-
     int nodesWithSkimsCount = 0;
+    int nodesWithMCLogsumsCount = 0;
     int mcLogsumCount = 0;
     int mcCollapsedLogsumCount = 0;
     int hhsWithAutoChoiceMade = 0;
@@ -160,15 +170,77 @@ public class PTMasterTask extends Task {
                                                //will replace the income per HH in the hhInfo[3] array.
 
         if (ResourceUtil.getBooleanProperty(ptRb, "sdt.calculate.workplaces", true)) {
-            initializeWorkplaceHolder();
-            sendWorkplaceLocationWork(hhInfo[5], hhInfo[4]);  //send segment per HH, and homeTazByHH out to workers with message
-            receiveAndProcessMessages();    //implies that Workplace Locations have been determined and that we have written the employment by taz file
+            readMCLogsumsWork();
+            receiveAndProcessMessages();	// this implies that mode choice logsums have been read. 
+            
+            maxIterations = ResourceUtil.getIntegerProperty(ptRb, "workplace.shadow.price.max.iterations", 5);
+            maxTolerance = ResourceUtil.getDoubleProperty(ptRb, "workplace.shadow.price.iter.convergance", 0.1);
+            pctEpsilon = ResourceUtil.getDoubleProperty(ptRb, "workplace.shadow.price.pct.epsilon", 0.15);
+            absEpsilon = ResourceUtil.getDoubleProperty(ptRb, "workplace.shadow.price.abs.epsilon", 15);
+			
+            int iter = 0;
+            double tolerance = 0;
+
+            shadowPrice = new double[tazManager.getMaxTazNumber() + 1];
+            Arrays.fill(shadowPrice, 0);
+            
+            String shadowPriceFile = ResourceUtil.getProperty(ptRb, "work.destination.choice.initial.shadow.price");
+            TableDataSet initialShadowPrice = readInitialShadowPrice(shadowPriceFile);
+            for(int i=1; i<shadowPrice.length; i++){
+            	shadowPrice[i] = initialShadowPrice.getColumnAsDouble("ShadowPrice")[i-1]; 
+            }   
+
+            shadowPriceByIter = new HashMap<Integer, double[]>();
+            
+            while (!converged){
+            	iter++;
+            	shadowPriceByIter.put(iter,shadowPrice.clone());
+            	
+            	initializeWorkplaceHolder();
+            	sendWorkplaceLocationWork(hhInfo[5], hhInfo[4], shadowPrice);  //send segment per HH, and homeTazByHH out to workers with message
+            	receiveAndProcessMessages();    //implies that work place Locations have been determined 
+            	
+            	ptDafMasterLogger.info("--------------------");
+        		ptDafMasterLogger.info("iteration : " + iter);
+        		
+            	for(Taz taz : tazManager.getTazArray()){
+            		ptDafMasterLogger.debug("shadow price before " + shadowPrice[taz.zoneNumber]);   		
+            		shadowPrice[taz.zoneNumber] = shadowPrice[taz.zoneNumber] * Math.min(Math.max((taz.employment.get("TotEmp")+1)/(calculatedEmpByTaz[taz.zoneNumber]+1), Math.exp(-1.0/4.0)),Math.exp(1.0/4.0));
+            		ptDafMasterLogger.debug("shadow price after " + shadowPrice[taz.zoneNumber]);
+            		
+            		pctDiffEmployment[taz.zoneNumber] = Math.abs(taz.employment.get("TotEmp") - calculatedEmpByTaz[taz.zoneNumber])/taz.employment.get("TotEmp");
+            		absDiffEmployment[taz.zoneNumber] = Math.abs(taz.employment.get("TotEmp") - calculatedEmpByTaz[taz.zoneNumber]);
+
+            		if(pctDiffEmployment[taz.zoneNumber] > pctEpsilon && absDiffEmployment[taz.zoneNumber] > absEpsilon){
+            			countZones++;
+            		}
+            		if(!Double.isNaN(pctDiffEmployment[taz.zoneNumber])){
+            			totalZones++;
+            		}
+            	}
+            	ptDafMasterLogger.info("--------------------");
+            	
+            	tolerance = (double)countZones/totalZones;
+            	
+            	ptDafMasterLogger.info("Workplace location iter num " + iter + ", convergence " + tolerance);
+            	            	
+            	if(tolerance < maxTolerance || iter >= maxIterations) {
+            		converged = true;
+            	}
+            }
+            // writing the shadow price data from work place location choice model
+            String fileName = globalRb.getString("workplace.shadow.price.by.iter");
+            writeShadowPriceByIter(fileName);
+            
+            // writing the employment data from work place location choice model
+            fileName = globalRb.getString("workplace.location.output");
+            writeEmploymentOutput(fileName);
+            
             ptDafMasterLogger.info(getName() + ", Signaling that the Workplace Location is finished.");
         }
 
-
         if(ResourceUtil.getBooleanProperty(ptRb, "sdt.calculate.dc.logsums", true)){
-            ptDafMasterLogger.info(getName() + ", Sending destination choice logsums work");
+            ptDafMasterLogger.info(getName() + ", Sending destination choice logsums work");            
             sendDCLogsumWork();
             receiveAndProcessMessages();    //implies that destination choice logsum work is complete.  It has to be done before HHs can be microsimulated
 
@@ -209,7 +281,8 @@ public class PTMasterTask extends Task {
 
     }
 
-    private void initializeVM(){
+
+	private void initializeVM(){
         ptDafMasterLogger.info("***" + getName() + ", started");
 
         ptDafMasterLogger.info(getName() + ", Reading RunParams.properties file");
@@ -249,7 +322,6 @@ public class PTMasterTask extends Task {
         CALCULATE_DCLOGSUMS =  ResourceUtil.getBooleanProperty(ptRb, "sdt.calculate.dc.logsums", true);
         CALCULATE_MCLOGSUMS = ResourceUtil.getBooleanProperty(ptRb,"sdt.calculate.mc.logsums", true);
         CALCULATE_WORKPLACE_LOCATIONS = ResourceUtil.getBooleanProperty(ptRb, "sdt.calculate.workplaces", true);
-        // if(!runningSEAM) TOTAL_COLLAPSED_MCLOGSUMS = ResourceUtil.getList(ptRb,"sdt.matrices.for.pecas").size();				[AK]
         TOTAL_COLLAPSED_MCLOGSUMS = 0;
         
         reader = new PTDataReader(ptRb, globalRb,null, baseYear);
@@ -278,6 +350,8 @@ public class PTMasterTask extends Task {
         tazManager.setTazClassName(tazClassName);
         tazManager.setAlphaZoneName(alphaName);
         tazManager.readData(globalRb, ptRb);
+		String filePath = ResourceUtil.getProperty(ptRb, "sdt.employment");
+		tazManager.updateWorkersFromSummary(filePath);
         tazManager.setParkingCost(globalRb,ptRb,"alpha2beta.file");
         ptDafMasterLogger.info("Finished initiliazing TazManager.");
 
@@ -426,19 +500,24 @@ public class PTMasterTask extends Task {
         }
     }
 
-    private void sendWorkplaceLocationWork(int[] hhSegments, int[] homeTazs){
+    private void sendWorkplaceLocationWork(int[] hhSegments, int[] homeTazs, double[] shadowPrice){
 
         ArrayList attachment = new ArrayList();
         attachment.add(0, hhSegments);
         attachment.add(1, homeTazs);
+        attachment.add(2, shadowPrice);
         sendMicroSimulatedWork(NUM_PERSONS, MessageID.CALCULATE_WORKPLACE_LOCATIONS, attachment);
     }
 
+    private void readMCLogsumsWork(){
+    	ArrayList<Message> messages = createReadMCLogsumWorkMessages();
+        sendAggregateWork(dcWorkPorts, messages, "Read MC Logsum work");
+    }
+    
     private void sendDCLogsumWork(){
         ArrayList<Message> messages = createDCLogsumWorkMessages();
         sendAggregateWork(dcWorkPorts, messages, "DC Logsum work");
     }
-
 
     private void sendSDTandLDTWork(){
         ArrayList attachment = new ArrayList();
@@ -522,6 +601,18 @@ public class PTMasterTask extends Task {
             }
         }
 
+        return msgs;
+    }
+
+    
+    private ArrayList<Message> createReadMCLogsumWorkMessages(){
+    	ArrayList<Message> msgs =  new ArrayList<Message>();
+    	int msgCounter = 0;
+    	Message readMCLogsumMessage = mFactory.createMessage();
+        readMCLogsumMessage.setId(MessageID.READ_MC_LOGSUMS);
+        
+        msgs.add(msgCounter, readMCLogsumMessage);
+        
         return msgs;
     }
 
@@ -693,21 +784,21 @@ public class PTMasterTask extends Task {
 
 
         } else if (msg.getId().equals(MessageID.WORKPLACE_LOCATIONS_CALCULATED)) {
-
-            tazManager.updateWorkers((HashMap<String, int[]>) msg.getValue("empInTazs"));
             storeWorkplaces(msg);
             personsWithWorkplaceCount += (Integer) msg.getValue("nPersonsProcessed");
             StatusLogger.logHistogram("pt.workplace.location","PT Status: Workplace Location (t" + timePeriod + ")",NUM_PERSONS,personsWithWorkplaceCount,"Workplace Location Persons Processed","Persons");
 
             if (personsWithWorkplaceCount == NUM_PERSONS) {
-                String employmentFileName = ResourceUtil.getProperty(ptRb, "sdt.current.employment");
-                tazManager.writeEmploymentFile(employmentFileName);
-
-
                 signalResultsProcessed();
             }
 
+        } else if (msg.getId().equals(MessageID.MC_LOGSUMS_READ)) {
 
+            nodesWithMCLogsumsCount++;
+            ptDafMasterLogger.info(getName() + ", Received MC Logsums Read message ");
+            if(nodesWithMCLogsumsCount == dcWorkQueues.size()){
+                signalResultsProcessed();
+            }
 
         } else if (msg.getId().equals(MessageID.DC_LOGSUMS_CREATED)) {
 
@@ -744,7 +835,7 @@ public class PTMasterTask extends Task {
         } else if (msg.getId().equals(MessageID.LDTTOURS_PROCESSED)) {
 
             numLDTToursProcessed += (Integer) msg.getValue("ldtToursProcessed");
-            ptDafMasterLogger.info("LDT Tours processed so far: " + numLDTToursProcessed + " of " + numLDTToursExpected + " sent.");
+            ptDafMasterLogger.debug("LDT Tours processed so far: " + numLDTToursProcessed + " of " + numLDTToursExpected + " sent.");
             StatusLogger.logHistogram("pt.ldttours.processed","PT Status: LDT Tours",numLDTToursProcessed,numLDTToursExpected,"LDT Tours Expected","LDT Tours Processed");
              
             if (householdsProcessedCount == (numHhsProcessed) && numLDTToursExpected==numLDTToursProcessed) {
@@ -781,17 +872,6 @@ public class PTMasterTask extends Task {
 
 
         } else if (msg.getId().equals(MessageID.ALL_FILES_WRITTEN)) {
-
-//            ptDafMasterLogger.info("PT model timings.");
-//            ptDafMasterLogger.info("activityPattern: " + activityPattern);
-//            ptDafMasterLogger.info("tourScheduling: " + tourScheduling);
-//            ptDafMasterLogger.info("tourDestination: " + tourDestination);
-//            ptDafMasterLogger.info("tourMode: " + tourMode);
-//            ptDafMasterLogger.info("tourStops: " + tourStops);
-//            ptDafMasterLogger.info("stopDestination: " + stopDestination);
-//            ptDafMasterLogger.info("stopDuration: " + stopDuration);
-//            ptDafMasterLogger.info("tripMode: " + tripMode);
-
             ptDafMasterLogger.info(getName() + ", Signaling that all files have been closed");
             signalResultsProcessed();
 
@@ -806,34 +886,113 @@ public class PTMasterTask extends Task {
         }
 
         personHhIds = new int[sum];
-        memberIds = new byte[sum];
+        memberIds = new int[sum];
         workplaces = new short[sum];
-
+       
+        calculatedEmpByTaz = new int[tazManager.getMaxTazNumber() + 1];
+       
+        pctDiffEmployment = new double[tazManager.getMaxTazNumber() + 1];
+        absDiffEmployment = new double[tazManager.getMaxTazNumber() + 1];
+        Arrays.fill(calculatedEmpByTaz, 0);
+        Arrays.fill(pctDiffEmployment, 0);
+        Arrays.fill(absDiffEmployment, 0);
+        
+        personsWithWorkplaceCount = 0;
+    	index = 0; 
+    	countZones = 0;
+    	totalZones = 0;
     }
 
-    public void storeWorkplaces(Message msg){
-        HashMap<String,Short> workplaceByPersonId = (HashMap<String, Short>) msg.getValue("workplaceByPersonId");
-
-
-        for(String key : workplaceByPersonId.keySet()){
-            personHhIds[index] = Integer.parseInt(key.substring(0, key.indexOf("_")));
-            memberIds[index] = Byte.parseByte(key.substring(key.indexOf("_")+1, key.length()));
-            workplaces[index] = workplaceByPersonId.get(key);
-            index++;
-        }
+    public void storeWorkplaces(Message msg){   
+    	for(Taz taz : tazManager.getTazArray()){
+    		calculatedEmpByTaz[taz.zoneNumber] = calculatedEmpByTaz[taz.zoneNumber] + ((HashMap<String, int[]>) msg.getValue("empInTazs")).get("TotEmp")[taz.zoneNumber];
+    	}
+    	
+    	HashMap<String,Short> workplaceByPersonId = (HashMap<String, Short>) msg.getValue("workplaceByPersonId");
+    	
+    	for(String key : workplaceByPersonId.keySet()){
+    		personHhIds[index] = Integer.parseInt(key.substring(0, key.indexOf("_")));
+    		memberIds[index] = Integer.parseInt(key.substring(key.indexOf("_")+1, key.length()));
+    		workplaces[index] = workplaceByPersonId.get(key);
+    		index++;
+    	}	
     }
 
     private void calculateNumHhsProcessed(){
         numHhsProcessed = NUM_HOUSEHOLDS /sampleRate;
-
     }
     
     // Currently no sample rate for visitor
     private void calculateNumVisitorsProcessed() {
         numVisitorsProcessed = visitorsInfo[1]/1;
     }
+    
+    private void writeEmploymentOutput(String fileName) {
+    	BufferedWriter fileWriter;
+    	
+        try {
+            fileWriter = new BufferedWriter(new FileWriter(new File(fileName)));
 
+            String header = "Taz";
+            header += "," + "TotalCalEmp"; 
+            header += "\n";
+            fileWriter.write(header);
 
+        	for(Taz taz : tazManager.getTazArray()){
+        		String lineToWrite = Integer.toString(taz.zoneNumber);
+                lineToWrite += "," + Integer.toString(calculatedEmpByTaz[taz.zoneNumber]);	
+        		lineToWrite += "\n";
+        		fileWriter.write(lineToWrite);
+        	}
+            fileWriter.close();
+        } catch (IOException e) {
+            String message = "Unable to create the employment file.";
+            logger.fatal(message);
+            throw new RuntimeException(message);
+        }
+	}
+    
+    private void writeShadowPriceByIter(String fileName) {
+    	BufferedWriter fileWriter;
 
+    	try {
+    		fileWriter = new BufferedWriter(new FileWriter(new File(fileName)));
 
+    		String header = "TAZ";
+    		for(int iter = 1; iter <= maxIterations; iter++){
+    			if(!(shadowPriceByIter.get(iter) == null)){
+    				header += "," + "Iter_" + iter;
+    			}
+    		}
+    		header += "\n";
+    		fileWriter.write(header);
+
+    		for(int i = 1; i <= tazManager.getMaxTazNumber(); i++){
+    			String lineToWrite = Integer.toString(i);
+    			for(int iter = 1; iter <= maxIterations; iter++){
+    				if(!(shadowPriceByIter.get(iter) == null)){
+    					lineToWrite += "," + Double.toString(shadowPriceByIter.get(iter)[i]);
+    				}
+    			}		
+    			lineToWrite += "\n";
+    			fileWriter.write(lineToWrite);
+    		}
+    		fileWriter.close();
+    	} catch (IOException e) {
+    		String message = "Unable to create the file.";
+    		logger.fatal(message);
+    		throw new RuntimeException(message);
+    	}
+    }
+    
+	private TableDataSet readInitialShadowPrice(String fileName) {
+		try {
+			CSVFileReader reader = new CSVFileReader();
+			return reader.readFile(new File(fileName));
+
+		} catch (IOException e) {
+			logger.fatal("Can't find input table " + fileName);
+			throw new RuntimeException("Can't find input table " + fileName);
+		}
+	}
 }

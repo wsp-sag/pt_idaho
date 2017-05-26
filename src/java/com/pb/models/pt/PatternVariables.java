@@ -135,7 +135,18 @@ public class PatternVariables {
     public static final int SHOPSTOPSPERTOUR                           = 107; 
     public static final int RECSTOPSPERTOUR                            = 108; 
     public static final int OTHERSTOPSPERTOUR                          = 109;
+
+    public static final int SHOPWITHOUTSTOPS                           = 110;
+    public static final int SHOPWITHINSTOPS                            = 111;
+    public static final int SHOPWITHBOTHSTOPS                          = 112;
+    public static final int RECREATEWITHOUTSTOPS                       = 113;
+    public static final int RECREATEWITHINSTOPS                        = 114;
+    public static final int RECREATEWITHBOTHSTOPS                      = 115;
+    public static final int OTHERWITHOUTSTOPS                          = 116;
+    public static final int OTHERWITHINSTOPS                           = 117;
+    public static final int OTHERWITHBOTHSTOPS                         = 118; 
+    
     // new variables for ohio
-    public static final int PRESENCESCHOOLSTOPSONSCHOOLTOURS           = 110; 
-    public static final int PRESENCEWORKSTOPSONLYONSCHOOLTOURS         = 111; 
+    public static final int PRESENCESCHOOLSTOPSONSCHOOLTOURS           = 119; 
+    public static final int PRESENCEWORKSTOPSONLYONSCHOOLTOURS         = 120; 
 }

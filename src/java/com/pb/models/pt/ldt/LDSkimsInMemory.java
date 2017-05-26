@@ -76,23 +76,21 @@ public class LDSkimsInMemory {
      *            Property file
      */
     public void readSkimsIntoMemory (ResourceBundle globalRb, ResourceBundle rb) {
-		//if (!skimsRead) {				[AK]
-			mode = LDTourModeType.values();
-            pkSkims = new MatrixCollection[mode.length];
-            opSkims = new MatrixCollection[mode.length];
-            pkSkimTables = new HashSet[mode.length];
-            opSkimTables = new HashSet[mode.length];
+    	mode = LDTourModeType.values();
+    	pkSkims = new MatrixCollection[mode.length];
+    	opSkims = new MatrixCollection[mode.length];
+    	pkSkimTables = new HashSet[mode.length];
+    	opSkimTables = new HashSet[mode.length];
 
-            PriceConverter priceConverter = PriceConverter.getInstance(globalRb,rb);
-            AOC = priceConverter.convertPrice(Float.parseFloat(ResourceUtil.getProperty(globalRb, "auto.operating.cost")),PriceConverter.ConversionType.PRICE);
-            AM_PEAK_START = Integer.parseInt(ResourceUtil.getProperty(globalRb, "am.peak.start"));
-            AM_PEAK_END = Integer.parseInt(ResourceUtil.getProperty(globalRb, "am.peak.end"));
-            PM_PEAK_START = Integer.parseInt(ResourceUtil.getProperty(globalRb, "pm.peak.start"));
-            PM_PEAK_END = Integer.parseInt(ResourceUtil.getProperty(globalRb, "pm.peak.end"));
-            
-            readSkims(rb);
-            skimsRead = true;
-		//}
+    	PriceConverter priceConverter = PriceConverter.getInstance(globalRb,rb);
+    	AOC = priceConverter.convertPrice(Float.parseFloat(ResourceUtil.getProperty(globalRb, "auto.operating.cost")),PriceConverter.ConversionType.PRICE);
+    	AM_PEAK_START = Integer.parseInt(ResourceUtil.getProperty(globalRb, "am.peak.start"));
+    	AM_PEAK_END = Integer.parseInt(ResourceUtil.getProperty(globalRb, "am.peak.end"));
+    	PM_PEAK_START = Integer.parseInt(ResourceUtil.getProperty(globalRb, "pm.peak.start"));
+    	PM_PEAK_END = Integer.parseInt(ResourceUtil.getProperty(globalRb, "pm.peak.end"));
+
+    	readSkims(rb);
+    	skimsRead = true;
     }
     
     /**

@@ -92,14 +92,13 @@ public class MCWriterTask extends MessageProcessingTask {
 
         m = (Matrix) (msg.getValue("matrix"));
         long startTime = System.currentTimeMillis();
-        
-        /*		[AK]
-        MatrixWriter mw = MatrixWriter.createWriter(MatrixType.ZIP,				
-                new File(path + m.getName() + extension)); // Open for writing
-        mw.writeMatrix(m);
-		*/
 
-        MatrixWriter.writeMatrix(new File(path + m.getName() + extension), m);
+        MatrixWriter matWriter = null;
+        
+        matWriter = MatrixWriter.createWriter(path + m.getName() + extension);
+        matWriter.writeMatrix(m.getName(), m);
+        
+        //MatrixWriter.writeMatrix(new File(path + m.getName() + extension), m);
         
         matrixWriterLogger.info(getName() + ", Wrote matrix " + (path + m.getName()) + extension
                 + " in " + (System.currentTimeMillis() - startTime)

@@ -16,12 +16,14 @@
  */
 package com.pb.models.pt;
 
- import com.pb.common.datafile.CSVFileReader;
+import com.pb.common.datafile.CSVFileReader;
 import com.pb.common.datafile.TableDataSet;
 import com.pb.common.matrix.Matrix;
+import com.pb.common.model.ModelException;
 import com.pb.common.util.ResourceUtil;
- import com.pb.models.pt.util.SkimsInMemory;
- import com.pb.models.utils.Tracer;
+import com.pb.models.pt.util.SkimsInMemory;
+import com.pb.models.utils.Tracer;
+
 
 
  import org.apache.log4j.Logger;
@@ -71,7 +73,7 @@ public class WorkBasedTourModel{
       * @param person person
       * @param tour tour
       * @param skims SkimsInMemory
-      * @param mcLogsums tour mode choice logsum manager
+      * @param mcLogsums mode choice logsums
       * @param tazs tazManager
       * @param tdcm dest choice model
       * @param tourMCM tour mode choice model
@@ -81,7 +83,7 @@ public class WorkBasedTourModel{
      public void calculateWorkBasedTour(PTHousehold household, 
      		                            PTPerson person, 
 										Tour tour, SkimsInMemory skims,
-                                        TourModeChoiceLogsumManager mcLogsums,
+                                        Matrix[] workMCLogsums,
                                         TazManager tazs,
                                         TourDestinationChoiceModel tdcm,
                                         TourModeChoiceModel tourMCM,
@@ -196,13 +198,20 @@ public class WorkBasedTourModel{
          int segment = IncomeSegmenter.calcLogsumSegment(household.income, household.autos, household.workers);
          Matrix time = skims.getTimeMatrix(ActivityPurpose.OTHER);
          Matrix dist = skims.getDistanceMatrix(ActivityPurpose.OTHER);
-         Matrix logsum = mcLogsums.getLogsumMatrix(ActivityPurpose.WORK_BASED,
-                 segment);
+         Matrix logsum = workMCLogsums[segment];
+         
          tdcm.constrainByTimeAvailable = true;
          tdcm.setDistanceThreshold(50);
          tdcm.calculateUtility(household, person, tour,
                  logsum, time, dist);
-         Taz dest = tdcm.chooseZone(random);
+         
+         Taz dest;
+         try {
+        	 dest = tdcm.chooseZone(random);
+         } catch (ModelException e){
+        	 dest = tazs.getTaz(tour.begin.location.zoneNumber);
+         }
+         
          Taz orig = tazs.getTaz(tour.begin.location.zoneNumber);
          tour.primaryDestination.location.zoneNumber = dest.zoneNumber;
          tdcm.constrainByTimeAvailable = false;

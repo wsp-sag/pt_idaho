@@ -51,7 +51,7 @@ public class LaborFlows {
 
     private AlphaToBeta alphaToBeta;
 
-    public MatrixCollection betaLaborFlows = new MatrixCollection();
+    public MatrixCollection tazLaborFlows = new MatrixCollection();
 
     public ColumnVector[] alphaProduction;
 
@@ -109,8 +109,6 @@ public class LaborFlows {
             ((PTOccupation) occRef).setProjectState(rb);
 
         matrixFormat = globalRb.getString("matrix.extension");
-
-        //this.wzUtil = new WorldZoneExternalZoneUtil(globalRb);				[AK]
     }
 
     /**
@@ -143,25 +141,14 @@ public class LaborFlows {
 
         Matrix alphaPropensityMatrix = new Matrix(m.getRowCount(), m
                 .getColumnCount());
-        
-        /*  [AK]
-        String name = m.getName();
-        int lsIndex = name.indexOf("ls");
-        name = name.substring(0, lsIndex) + "propensity";
-       
-        alphaPropensityMatrix.setName(name);
-        */
-        
-        //alphaPropensityMatrix.setExternalNumbers(m.getExternalNumbers());     //[AK]
+
         int origin;
         int destination;
         float propensity;
-        logger.info("**** rows " + m.getRowCount() + "  cols " + m.getColumnCount() + " ****");
         for (int i = 0; i < m.getRowCount(); i++) {
             for (int j = 0; j < m.getColumnCount(); j++) {
                 origin = m.getExternalNumber(i);
                 destination = m.getExternalNumber(j);
-                logger.info("i : " + i + "  j: " + j + "  origin : " + origin + "  dest : " + destination);
                 double intrazonal = 0.0;
                 double distanceParameter = 0.0;
 
@@ -202,7 +189,7 @@ public class LaborFlows {
         return alphaPropensityMatrix;
     }
 
-    public void readBetaLaborFlows(int baseYear, String[] occupations) {
+    public void readLaborFlows(int baseYear, String[] occupations) {
         String path = ResourceUtil.getProperty(rb, "worker.flows");
         String suffix = ResourceUtil.getProperty(globalRb, "matrix.extension");
 
@@ -218,12 +205,11 @@ public class LaborFlows {
             File file = new File(path + occRef.getOccupation(occupation).name() + suffix);			// changed to get the file with occupation name as defined in PTOccupation enum
 
             Matrix matrix = MatrixReader.readMatrix(file, occupation);
-            matrix = matrix.getSubMatrix(alphaToBeta.getBetaExternals1Based());
 
             matrix.setName(occRef.getOccupation(occupation).name());
             logger.info("Reading labor flows in from " + file.getAbsolutePath() +
                         " and adding to betaLaborFlows as " + matrix.getName());
-            betaLaborFlows.addMatrix(matrix);
+            tazLaborFlows.addMatrix(matrix);
         }
         
     }
@@ -246,15 +232,6 @@ public class LaborFlows {
 
         // create matrix collections tailored to the alpha tables
         String[] labels = production.getColumnLabels();
-        
-        //Getting the first occupation enum is arbitrary - just have to get one of them so that
-        //you can use the getClass.getEnumConstants method.
-        //alphaProduction = new ColumnVector[occRef.getOccupation(2).getClass().getEnumConstants().length];
-        //alphaConsumption = new RowVector[occRef.getOccupation(2).getClass().getEnumConstants().length];
-        
-        //changed [AK] - occRef.getOccupation(2) wasn't working for some reason....
-        
-        //String className = "com.pb.idaho.pt.PTOccupation";
         String className = ResourceUtil.getProperty(rb,"pt.occupation.enum.class");
         Class PTOccupationEnumClass = null;
         try {
@@ -286,135 +263,129 @@ public class LaborFlows {
         // convert the TableDataSet to ColumnVectors
         for (int rowNumber = 1; rowNumber <= production.getRowCount(); rowNumber++) {
             taz = (int) production.getValueAt(rowNumber, tazColumn);
-            
-            //[AK]
-            //if (!wzUtil.isWorldZone(taz)) {
-                for (int col = 2; col <= production.getColumnCount(); ++col) {
-                    String label = production.getColumnLabel(col);
-                    Enum occupation = occRef.getOccupation(label);
 
-                    alphaProduction[occupation.ordinal()].setValueAt(taz, production.getValueAt(rowNumber, col));
-                }
-            //}
+            for (int col = 2; col <= production.getColumnCount(); ++col) {
+            	String label = production.getColumnLabel(col);
+            	Enum occupation = occRef.getOccupation(label);
+
+            	alphaProduction[occupation.ordinal()].setValueAt(taz, production.getValueAt(rowNumber, col));
+            }
         }
 
         // convert the TableDataSet to RowVectors
         for (int rowNumber = 1; rowNumber <= consumption.getRowCount(); rowNumber++) {
             taz = (int) consumption.getValueAt(rowNumber, tazColumn);
-            
-            //[AK]
-            //if (!wzUtil.isWorldZone(taz)) {
-                for (int col = 2; col <= consumption.getColumnCount(); ++col) {
-                    String label = consumption.getColumnLabel(col);
-                    Enum occupation = occRef.getOccupation(label);
 
-                    alphaConsumption[occupation.ordinal()].setValueAt(taz, consumption.getValueAt(rowNumber, label));
-                }
-            //}
-        }
-    }
+            for (int col = 2; col <= consumption.getColumnCount(); ++col) {
+            	String label = consumption.getColumnLabel(col);
+            	Enum occupation = occRef.getOccupation(label);
 
-    public Matrix calculateAlphaLaborFlowsMatrix(Matrix mcLogsum, Matrix distance, int segment,
-            Enum occupation) {
-        MatrixExpansion2 me = new MatrixExpansion2(alphaToBeta);
-        me.setPropensityMatrix(calculatePropensityMatrix(mcLogsum,distance));
-
-
-        Matrix expandedLaborFlows = betaLaborFlows.getMatrix(occupation.name());
-
-        logger.debug("Setting the beta flow.");
-        me.setBetaFlowMatrix(expandedLaborFlows);
-
-        logger.debug("Setting the consumption.");
-        me.setConsumptionMatrix(alphaConsumption[occupation
-                .ordinal()]);
-
-        try {
-            logger.debug("Setting the production.");
-            me.setProductionMatrix(alphaProduction[occupation
-                    .ordinal()]);
-        } catch (MatrixException e) {
-            Matrix matrix = alphaProduction[occupation.ordinal()];
-            logger.fatal("Matrix " + matrix.getName() + " is "
-                    + matrix.getRowCount() + " x " + matrix.getColumnCount());
-            throw e;
-        } catch (Exception e) {
-            String msg = "Unhandled exception calculating alpha flows.";
-            logger.fatal(msg);
-            throw new RuntimeException(msg, e);
-        }
-
-        me.setAlphaFlowMatrix(alphaToBeta);
-
-        Matrix alphaFlow = me.getAlphaFlowMatrix();
-        String name = "TAZLaborFlow_" + occupation.name() + segment + matrixFormat;
-        me.setProbabilityMatrix(alphaFlow, name);
-
-        return me.getAlphaFlowProbabilityMatrix();
-    }
-
-    private static final Set<Object> DEBUG_FLOW_MATRICES_WRITTEN = Collections.synchronizedSet(new HashSet<Object>());
-
-    public Matrix calculateAlphaLaborFlowsMatrix(Matrix propensity, Matrix mcLogsum, Matrix distance, int segment,
-            Enum occupation) {
-        MatrixExpansion2 me = new MatrixExpansion2(alphaToBeta);
-        me.setPropensityMatrix(propensity);
-
-
-        Matrix expandedLaborFlows = betaLaborFlows.getMatrix(occupation.name());
-
-        logger.debug("Setting the beta flow.");
-        me.setBetaFlowMatrix(expandedLaborFlows);
-
-        logger.debug("Setting the consumption.");
-        me.setConsumptionMatrix(alphaConsumption[occupation
-                .ordinal()]);
-
-        try {
-            logger.debug("Setting the production.");
-            me.setProductionMatrix(alphaProduction[occupation
-                    .ordinal()]);
-        } catch (MatrixException e) {
-            Matrix matrix = alphaProduction[occupation.ordinal()];
-            logger.fatal("Matrix " + matrix.getName() + " is "
-                    + matrix.getRowCount() + " x " + matrix.getColumnCount());
-            throw e;
-        } catch (Exception e) {
-            String msg = "Unhandled exception calculating alpha flows.";
-            logger.fatal(msg);
-            throw new RuntimeException(msg, e);
-        }
-
-        me.setAlphaFlowMatrix(alphaToBeta);
-
-        Matrix alphaFlow = me.getAlphaFlowMatrix();
-        String name = "TAZLaborFlow_" + occupation.name() + segment + matrixFormat;
-        me.setProbabilityMatrix(alphaFlow, name);
-
-        String basePath = ResourceUtil.getProperty(rb,"pt.debug.labor.flow.matrix.path",null);
-        if (basePath != null && DEBUG_FLOW_MATRICES_WRITTEN.add(occupation)) { //only true for first to write to this
-            Map<String,Matrix> ftm = new HashMap<String, Matrix>();
-            ftm.put("LaborFlowPropensity",propensity);
-            ftm.put("LaborFlowBetaFlow",expandedLaborFlows);
-            ftm.put("LaborFlowAlphaConsumption",alphaConsumption[occupation.ordinal()]);
-            ftm.put("LaborFlowAlphaProduction",alphaProduction[occupation.ordinal()]);
-            ftm.put("LaborFlowAlphaFlow",me.getAlphaFlowMatrix());
-            ftm.put("LaborFlowAlphaFlowProbability",me.getAlphaFlowProbabilityMatrix());
-
-            for (String f : ftm.keySet()) {
-                if (new File(basePath,f + "_" + occupation.name()).exists())
-                    break; //somebody else wrote this or is writing it
-                MatrixWriter mWriter = PTResults.createMatrixWriter(f + "_" + occupation.name(),basePath);
-                try {
-                    mWriter.writeMatrix(ftm.get(f));
-                } catch (Exception e) {
-                    logger.error("Error writing out debug labor flow matrix " + f + ": ",e);
-                }
+            	alphaConsumption[occupation.ordinal()].setValueAt(taz, consumption.getValueAt(rowNumber, label));
             }
         }
-
-        return me.getAlphaFlowProbabilityMatrix();
     }
+    
+//    public Matrix calculateAlphaLaborFlowsMatrix(Matrix mcLogsum, Matrix distance, int segment,
+//            Enum occupation) {
+//        MatrixExpansion2 me = new MatrixExpansion2(alphaToBeta);
+//        me.setPropensityMatrix(calculatePropensityMatrix(mcLogsum,distance));
+//
+//
+//        Matrix expandedLaborFlows = betaLaborFlows.getMatrix(occupation.name());
+//
+//        logger.debug("Setting the beta flow.");
+//        me.setBetaFlowMatrix(expandedLaborFlows);
+//
+//        logger.debug("Setting the consumption.");
+//        me.setConsumptionMatrix(alphaConsumption[occupation
+//                .ordinal()]);
+//
+//        try {
+//            logger.debug("Setting the production.");
+//            me.setProductionMatrix(alphaProduction[occupation
+//                    .ordinal()]);
+//        } catch (MatrixException e) {
+//            Matrix matrix = alphaProduction[occupation.ordinal()];
+//            logger.fatal("Matrix " + matrix.getName() + " is "
+//                    + matrix.getRowCount() + " x " + matrix.getColumnCount());
+//            throw e;
+//        } catch (Exception e) {
+//            String msg = "Unhandled exception calculating alpha flows.";
+//            logger.fatal(msg);
+//            throw new RuntimeException(msg, e);
+//        }
+//
+//        me.setAlphaFlowMatrix(alphaToBeta);
+//
+//        Matrix alphaFlow = me.getAlphaFlowMatrix();
+//        String name = "TAZLaborFlow_" + occupation.name() + segment + matrixFormat;
+//        me.setProbabilityMatrix(alphaFlow, name);
+//
+//        return me.getAlphaFlowProbabilityMatrix();
+//    }
+	
+    private static final Set<Object> DEBUG_FLOW_MATRICES_WRITTEN = Collections.synchronizedSet(new HashSet<Object>());
+
+//    public Matrix calculateAlphaLaborFlowsMatrix(Matrix propensity, Matrix mcLogsum, Matrix distance, int segment,
+//            Enum occupation) {
+//        MatrixExpansion2 me = new MatrixExpansion2(alphaToBeta);
+//        me.setPropensityMatrix(propensity);
+//
+//
+//        Matrix expandedLaborFlows = betaLaborFlows.getMatrix(occupation.name());
+//
+//        logger.debug("Setting the beta flow.");
+//        me.setBetaFlowMatrix(expandedLaborFlows);
+//
+//        logger.debug("Setting the consumption.");
+//        me.setConsumptionMatrix(alphaConsumption[occupation
+//                .ordinal()]);
+//
+//        try {
+//            logger.debug("Setting the production.");
+//            me.setProductionMatrix(alphaProduction[occupation
+//                    .ordinal()]);
+//        } catch (MatrixException e) {
+//            Matrix matrix = alphaProduction[occupation.ordinal()];
+//            logger.fatal("Matrix " + matrix.getName() + " is "
+//                    + matrix.getRowCount() + " x " + matrix.getColumnCount());
+//            throw e;
+//        } catch (Exception e) {
+//            String msg = "Unhandled exception calculating alpha flows.";
+//            logger.fatal(msg);
+//            throw new RuntimeException(msg, e);
+//        }
+//
+//        me.setAlphaFlowMatrix(alphaToBeta);
+//
+//        Matrix alphaFlow = me.getAlphaFlowMatrix();
+//        String name = "TAZLaborFlow_" + occupation.name() + segment + matrixFormat;
+//        me.setProbabilityMatrix(alphaFlow, name);
+//
+//        String basePath = ResourceUtil.getProperty(rb,"pt.debug.labor.flow.matrix.path",null);
+//        if (basePath != null && DEBUG_FLOW_MATRICES_WRITTEN.add(occupation)) { //only true for first to write to this
+//            Map<String,Matrix> ftm = new HashMap<String, Matrix>();
+//            ftm.put("LaborFlowPropensity",propensity);
+//            ftm.put("LaborFlowBetaFlow",expandedLaborFlows);
+//            ftm.put("LaborFlowAlphaConsumption",alphaConsumption[occupation.ordinal()]);
+//            ftm.put("LaborFlowAlphaProduction",alphaProduction[occupation.ordinal()]);
+//            ftm.put("LaborFlowAlphaFlow",me.getAlphaFlowMatrix());
+//            ftm.put("LaborFlowAlphaFlowProbability",me.getAlphaFlowProbabilityMatrix());
+//
+//            for (String f : ftm.keySet()) {
+//                if (new File(basePath,f + "_" + occupation.name()).exists())
+//                    break; //somebody else wrote this or is writing it
+//                MatrixWriter mWriter = PTResults.createMatrixWriter(f + "_" + occupation.name(),basePath);
+//                try {
+//                    mWriter.writeMatrix(ftm.get(f));
+//                } catch (Exception e) {
+//                    logger.error("Error writing out debug labor flow matrix " + f + ": ",e);
+//                }
+//            }
+//        }
+//
+//        return me.getAlphaFlowProbabilityMatrix();
+//    }
 
     /**
      * Log the total values across columns for each row in the matrix.

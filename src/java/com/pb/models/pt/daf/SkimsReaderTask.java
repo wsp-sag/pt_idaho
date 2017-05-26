@@ -21,6 +21,7 @@ import com.pb.common.daf.MessageProcessingTask;
 import com.pb.common.util.ResourceUtil;
 import com.pb.models.pt.PriceConverter;
 import com.pb.models.pt.util.SkimsInMemory;
+
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -35,45 +36,44 @@ import java.util.ResourceBundle;
  */
 public class SkimsReaderTask extends MessageProcessingTask {
     Logger skimsLogger = Logger.getLogger(SkimsReaderTask.class);
-
+    //protected static final Object lock = new Object();
+    
     public void onStart(){
-
-        skimsLogger.info(getName() + ", Started");
-
-        // We need to read in the Run Parameters (pathToResourceBundle)
-        //  from the RunParams.properties file
-        // that was written by the Application Orchestrator
-        String pathToPtRb;
-        String pathToGlobalRb;
-
-        skimsLogger.info(getName() + ", Reading RunParams.properties file");
-        ResourceBundle runParamsRb = ResourceUtil.getResourceBundle("RunParams");
-        pathToPtRb = ResourceUtil.getProperty(runParamsRb,
-                "pathToAppRb");
-        skimsLogger.info(getName() + ", ResourceBundle Path: "
-                + pathToPtRb);
-        pathToGlobalRb = ResourceUtil.getProperty(runParamsRb,
-                "pathToGlobalRb");
-        skimsLogger.info(getName() + ", ResourceBundle Path: "
-                + pathToGlobalRb);
-
-        ResourceBundle ptRb = ResourceUtil.getPropertyBundle(new File(pathToPtRb));
-        ResourceBundle globalRb = ResourceUtil.getPropertyBundle(new File(
-                pathToGlobalRb));
-
-        //initialize price converter
-        PriceConverter.getInstance(ptRb,globalRb);
-
-        SkimsInMemory skims = SkimsInMemory.getSkimsInMemory();
-        if(!skims.isReady()){
-            skimsLogger.info(getName() +  ", Reading Skims into memory");
-            skims.setGlobalProperties(globalRb);
-            skims.readSkims(ptRb);
-        }
-
-        Message skimsReadMsg = mFactory.createMessage();
-        skimsReadMsg.setId(MessageID.SKIMS_READ);
-        sendTo("TaskMasterQueue", skimsReadMsg);
+	        skimsLogger.info(getName() + ", Started");
+	
+	        // We need to read in the Run Parameters (pathToResourceBundle)
+	        //  from the RunParams.properties file
+	        // that was written by the Application Orchestrator
+	        String pathToPtRb;
+	        String pathToGlobalRb;
+	
+	        skimsLogger.info(getName() + ", Reading RunParams.properties file");
+	        ResourceBundle runParamsRb = ResourceUtil.getResourceBundle("RunParams");
+	        pathToPtRb = ResourceUtil.getProperty(runParamsRb,
+	                "pathToAppRb");
+	        skimsLogger.info(getName() + ", ResourceBundle Path: "
+	                + pathToPtRb);
+	        pathToGlobalRb = ResourceUtil.getProperty(runParamsRb,
+	                "pathToGlobalRb");
+	        skimsLogger.info(getName() + ", ResourceBundle Path: "
+	                + pathToGlobalRb);
+	
+	        ResourceBundle ptRb = ResourceUtil.getPropertyBundle(new File(pathToPtRb));
+	        ResourceBundle globalRb = ResourceUtil.getPropertyBundle(new File(
+	                pathToGlobalRb));
+	
+	        //initialize price converter
+	        PriceConverter.getInstance(ptRb,globalRb);
+	
+	        SkimsInMemory skims = SkimsInMemory.getSkimsInMemory();
+	        if(!skims.isReady()){
+	            skimsLogger.info(getName() +  ", Reading Skims into memory");
+	            skims.setGlobalProperties(globalRb);
+	            skims.readSkims(ptRb);
+	        }
+	
+	        Message skimsReadMsg = mFactory.createMessage();
+	        skimsReadMsg.setId(MessageID.SKIMS_READ);
+	        sendTo("TaskMasterQueue", skimsReadMsg);
     }
-
  }

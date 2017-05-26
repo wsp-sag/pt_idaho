@@ -1,3 +1,4 @@
+
 /*
  * Copyright  2005 PB Consult Inc.
  *
@@ -16,6 +17,7 @@
  */
 package com.pb.models.pt.daf;
 
+
 import com.pb.common.daf.Message;
 import com.pb.common.daf.MessageProcessingTask;
 import com.pb.common.matrix.Matrix;
@@ -26,10 +28,11 @@ import com.pb.models.pt.ldt.LDBinaryChoiceModel;
 import com.pb.models.pt.ldt.LDPatternModel;
 import com.pb.models.pt.ldt.LDTour;
 import com.pb.models.pt.ldt.RunLDTModels;
+import com.pb.models.pt.tourmodes.AutoDriver;
+import com.pb.models.pt.util.MCLogsumsInMemory;
 import com.pb.models.pt.util.SkimsInMemory;
 import com.pb.models.utils.Tracer;
 import org.apache.log4j.Logger;
-
 import java.io.File;
 import java.util.HashMap;
 import java.util.Random;
@@ -53,7 +56,6 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
     protected static ResourceBundle globalRb;
     protected static int baseYear;
     protected static SkimsInMemory skims;
-
     protected static boolean CALCULATE_LDT;
     protected static boolean CALCULATE_SDT;
     protected static boolean CALCULATE_VM;
@@ -67,7 +69,6 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
     private LDBinaryChoiceModel ldBinaryChoiceModel;
     private LDPatternModel ldPatternModel;
 
-    private TourModeChoiceLogsumManager mcLogsums;
     protected TazManager tazManager;
 
     private PatternChoiceModel patternModel;
@@ -82,7 +83,8 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
     private StopDurationModel stopDurationModel;
     private TripModeChoiceModel tripModeChoiceModel;
     private WorkBasedTourModel workBasedTourModel;
-
+    
+    private static Matrix[] workMCLogsums;
     double durationTime;
     double primaryTime;
     double secondaryTime;
@@ -210,14 +212,14 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
 
         } else if(msg.getId().equals(MessageID.PROCESS_HOUSEHOLDS)){
             if(firstProcessHouseholdMessage){
-                //if only calculating LDT, only need to initialize the ldt models
+            	//if only calculating LDT, only need to initialize the ldt models
                 if(CALCULATE_LDT && !CALCULATE_SDT && !CALCULATE_VM){
                     initializeLDTModels();
                 } else if(CALCULATE_VM && !CALCULATE_LDT && !CALCULATE_SDT){
                     initializeTazManager();
                     initializeSDTModels();
                 }else{
-                    initializeLDTModels();
+                	initializeLDTModels();
                     initializeTazManager();
                     initializeSDTModels();
                 }
@@ -227,7 +229,7 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
             processHouseholds(msg);
         }
     }
-
+    
     private void runAutoOwnershipModel(Message msg){
         int startRow = (Integer) msg.getValue("startRow");
         int endRow = (Integer) msg.getValue("endRow");
@@ -351,9 +353,6 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
 
     private void initializeSDTModels(){
         if(patternModel == null){
-             ptLogger.info(getName() + ", Initializing mode choice logsum manager.");
-                mcLogsums = new TourModeChoiceLogsumManager( globalRb,  ptRb);
-
                  ptLogger.info(getName() + ", Initializing stop purpose model.");
                 iStopPurposeModel = new StopPurposeModel( ptRb);
 
@@ -426,298 +425,297 @@ public class MicroSimulationWorkerTask extends MessageProcessingTask {
         }
 
         // read workplace locations from file
-        String file = ResourceUtil.getProperty( ptRb, "sdt.current.employment");
-        if(!new File(file).exists()){
-            file = ResourceUtil.getProperty( ptRb, "sdt.previous.employment");
-        }
+        String file = ResourceUtil.getProperty( ptRb, "sdt.employment");
         tazManager.updateWorkersFromSummary(file);
     }
 
     private void runShortDistanceModels(int numLDTTours){
 
-        ptLogger.info(getName() + ", Running Short-distance travel models");
-        //We will set the seed each time we call a new model and the seed will either
-        //be the sum of the modelSeed and the personSeed OR if we are in sensitivity testing
-        //mode the seed will be the sum of the 2 fixed seeds plus the clock time in order
-        //to randomize the random number sequence.
-        Random random = new Random();  //we will set the seed each time
+    	ptLogger.info(getName() + ", Running Short-distance travel models");
+    	//We will set the seed each time we call a new model and the seed will either
+    	//be the sum of the modelSeed and the personSeed OR if we are in sensitivity testing
+    	//mode the seed will be the sum of the 2 fixed seeds plus the clock time in order
+    	//to randomize the random number sequence.
+    	Random random = new Random();  //we will set the seed each time
 
-        for (PTHousehold household : households) {
+    	workMCLogsums = new Matrix[TourModeChoiceLogsumManager.TOTALSEGMENTS];
+    	for (int segment = 0; segment < TourModeChoiceLogsumManager.TOTALSEGMENTS; segment++) {
+    		workMCLogsums[segment] = MCLogsumsInMemory.mcLogsumsInMemory[ActivityPurpose.WORK_BASED.ordinal()][segment];
+    	}
+		
+    	for (PTHousehold household : households) {
 
-            //check to see if the household is making a long-distance
-            //tour on the model day - if so, go to the next household
-            //(the LDT models have taken care of this hh's tours)
-            if(household.isHhMakingALdtOnModelDay()){
-                continue;
-            }
+    		//check to see if the household is making a long-distance
+    		//tour on the model day - if so, go to the next household
+    		//(the LDT models have taken care of this hh's tours)
+    		if(household.isHhMakingALdtOnModelDay()){
+    			continue;
+    		}
 
-            if (tracer.isTraceHousehold(household.ID)) {
-                 ptLogger.info(getName() + ", " + household.summary());
-            }
+    		if (tracer.isTraceHousehold(household.ID)) {
+    			ptLogger.info(getName() + ", " + household.summary());
+    		}
 
-            int segment = IncomeSegmenter.calcLogsumSegment(household.income, household.autos, household.workers);
+    		int segment = IncomeSegmenter.calcLogsumSegment(household.income, household.autos, household.workers);
 
-            for (PTPerson person : household.persons) {
+    		for (PTPerson person : household.persons) {
 
-                //no reason to process a person making a long-distance
-                //tour because you can't do both.
-                if(PTPerson.isPersonMakingALdtOnModelDay(person)){
-                    continue;
-                }
+    			//no reason to process a person making a long-distance
+    			//tour because you can't do both.
+    			if(PTPerson.isPersonMakingALdtOnModelDay(person)){
+    				continue;
+    			}
 
-                try {
-                    boolean tracePerson = tracer.isTracePerson(person.hhID + "_" + person.memberID);
+    			try {
+    				boolean tracePerson = tracer.isTracePerson(person.hhID + "_" + person.memberID);
 
-                    if (tracePerson) {
-                        ptLogger.info(getName() + ", Applying PT models to HH " + household.ID + ", Person "
-                            + person.memberID + ".");
-                        ptLogger.info(getName() + ", " + person.summary());
-                    }
-
-
-
-                     ptLogger.debug(getName() + ", Running the daily pattern choice model.");
-                     double patternModelLogsum = patternModel.getUtility(household, person,  skims.pkDist);
-
-                     if(sensitivityTestingMode) random.setSeed(patternModelFixedSeed+person.randomSeed+System.currentTimeMillis());
-                     else random.setSeed(patternModelFixedSeed + person.randomSeed);
-
-                     String patternName = patternModel.choosePattern(random).getName();
-
-                     if (tracePerson) {
-                        ptLogger.info(getName() + ", " + (person.hhID + "_" + person.memberID)
-                                + " has pattern -> " + patternName);
-                     }
-
-                     person.setPattern(new Pattern(patternName));
-                     person.setPatternLogsum(patternModelLogsum); 
-                     ptLogger.debug(getName() + ", Pattern is set");
-
-                    if(person.weekdayPattern.toString().equals("h")||
-                            person.weekdayPattern.toString().equals("H"))
-                        continue;
-
-                    person.weekdayTours = PatternChoiceModel.convertToTours(
-                            household, person, person.getPattern());
-
-                    person.orderTours();
-                    person.prioritizeTours();
-
-                    ptLogger.debug(getName() + ", Running stop choice.");
-                    for (int t = 0; t < person.getTourCount(); ++t) {
-                        Tour tour = person.weekdayTours[t];
-
-                        if(person.getTourCount()>=3){
-                            tourStopChoiceModel.calculateUtilities(household, person, tour);
-                            if(sensitivityTestingMode)
-                                random.setSeed(tourStopFixedSeed + person.randomSeed + System.currentTimeMillis());
-                            else random.setSeed(tourStopFixedSeed + person.randomSeed);
-
-                            tourStopChoiceModel.chooseStopType(random);
-                         }
-                    }
-
-                    ptLogger.debug(getName() + ", Running the scheduling model.");
-                    if(sensitivityTestingMode)
-                        random.setSeed(tourSchedulingFixedSeed + person.randomSeed + System.currentTimeMillis());
-                    else random.setSeed(tourSchedulingFixedSeed + person.randomSeed);
-
-                    tourSchedulingModel.chooseAllSchedules(household, person,
-                             skims, random);
-                    ptLogger.debug(getName() + ", Schedule is set");
-
-                    for (int t = 0; t < person.getTourCount(); ++t) {
-                        Tour tour = person.weekdayTours[t];
-
-                        ActivityPurpose purpose = tour.getPurpose();
-                        Matrix time =  skims.getTimeMatrix(purpose);
-                        Matrix dist =  skims.getDistanceMatrix(purpose);
-                        Matrix logsum = mcLogsums.getLogsumMatrix(purpose,
-                                segment);
-                        Taz dest;
-
-                        if (purpose != ActivityPurpose.WORK && purpose != ActivityPurpose.WORK_BASED) {
-                             ptLogger.debug(getName() + ", Running primary destination choice for tour " + tour.tourNumber);
-
-                            dcModel.calculateUtility(household, person, tour, logsum, dist, time);
-
-                            if(sensitivityTestingMode)
-                                random.setSeed(tourDestinationFixedSeed + person.randomSeed + System.currentTimeMillis());
-                            else random.setSeed(tourDestinationFixedSeed + person.randomSeed);
-
-                            try {
-                                dest = dcModel.chooseZone(random);
-                            } catch (ModelException e) {
-                                 ptLogger.error(getName() + ", Ignoring non-fatal model exception, " + e);
-                                 ptLogger.error(getName() + ", Setting destination to home taz.");
-                                 dest = tazManager.getTazDataHashtable().get((int) person.homeTaz);
-                            }
-                            tour.primaryDestination.location.zoneNumber = dest.zoneNumber;
-                       } else {
-                             ptLogger.debug(getName() + ", Using work TAZ " + person.workTaz);
-                            dest = tazManager.getTazDataHashtable().get((int) person.workTaz);
-                            tour.primaryDestination.location.zoneNumber = person.workTaz;
-                       }
-                        ptLogger.debug(getName() + ", Primary destination is set");
-
-                       if (tracePerson) {
-                            ptLogger.info(getName() + ", Chose destination: "
-                                    + tour.primaryDestination.location.zoneNumber);
-                       }
-                        Taz orig = tazManager.getTaz(tour.begin.location.zoneNumber);
-
-                        ptLogger.debug(getName() + ", Running tour mode choice to taz  "
-                                + dest.getZoneNumber() + " for tour number " + tour.tourNumber);
-                        tourMC.setAttributes(household, person, tour,  skims, orig, dest);
-                        tourMC.calculateUtility();
-
-                        if(sensitivityTestingMode)
-                           random.setSeed(tourModeFixedSeed + person.randomSeed + System.currentTimeMillis());
-                        else random.setSeed(tourModeFixedSeed + person.randomSeed);
-
-                        tour.primaryMode = tourMC.chooseMode(random);
-                        ptLogger.debug(getName() + ", Tour mode is set");
-
-                        if (tracePerson) {
-                            ptLogger.info(getName() + ", Chose mode: " + tour.primaryMode);
-                        }
-
-//                        ptLogger.debug(getName() + ", Running stop choice.");
-//
-//                        if(person.getTourCount()>=3){
-//                            tourStopChoiceModel.calculateUtilities(household, person, tour);
-//                            if(sensitivityTestingMode)
-//                                random.setSeed(tourStopFixedSeed + person.randomSeed + System.currentTimeMillis());
-//                            else random.setSeed(tourStopFixedSeed + person.randomSeed);
-//
-//                            tourStopChoiceModel.chooseStopType(random);
-//                         }
-
-                         ptLogger.debug(getName() + ", Running intermediate stop purpose model for tour " + tour.tourNumber);
-
-                        if(sensitivityTestingMode)
-                            random.setSeed(stopPurposeFixedSeed + person.randomSeed + System.currentTimeMillis());
-                        else random.setSeed(stopPurposeFixedSeed + person.randomSeed);
-                        iStopPurposeModel.selectStopPurpose(tour, person, random);
+    				if (tracePerson) {
+    					ptLogger.info(getName() + ", Applying PT models to HH " + household.ID + ", Person "
+    							+ person.memberID + ".");
+    					ptLogger.info(getName() + ", " + person.summary());
+    				}
 
 
-                         ptLogger.debug(getName() + ", Running stop location choice for tour " + tour.tourNumber);
-                        if(sensitivityTestingMode)
-                            random.setSeed(stopDestinationFixedSeed + person.randomSeed + System.currentTimeMillis());
-                        else random.setSeed(stopDestinationFixedSeed + person.randomSeed);
-                        stopDestinationChoiceModel.calculateStopZones(household, person, tour,  skims, random);
 
-                        if (tour.intermediateStop1 != null) {
-                             ptLogger.debug("Running stop duration choice for stop 1 for tour " + tour.tourNumber);
-                             ptLogger.debug("From zone " + tour.begin.location.zoneNumber
-                                            + " to "  + tour.intermediateStop1.location.zoneNumber);
+    				ptLogger.debug(getName() + ", Running the daily pattern choice model.");
+    				double patternModelLogsum = patternModel.getUtility(household, person,  skims.pkDist);
 
-                            ptLogger.debug("Calculating stop duration utilities");
-                            stopDurationModel.calculateUtilities(person, tour,tour.intermediateStop1);
+    				if(sensitivityTestingMode) random.setSeed(patternModelFixedSeed+person.randomSeed+System.currentTimeMillis());
+    				else random.setSeed(patternModelFixedSeed + person.randomSeed);
 
-                            if(sensitivityTestingMode)
-                                random.setSeed(stopDuration1FixedSeed + person.randomSeed + System.currentTimeMillis());
-                            else random.setSeed(stopDuration1FixedSeed + person.randomSeed);
-                            short duration = (short) stopDurationModel.chooseDuration(random);
-                            tour.intermediateStop1.duration = duration;
+    				String patternName = patternModel.choosePattern(random).getName();
 
-                            if (tracer.isTracePerson(person.hhID + "_" + person.memberID)) {
-                                 ptLogger.info(getName() + ", Stop 1 duration: " + duration);
-                                 ptLogger.info(getName() + ", Stop 1 start: "
-                                        + tour.intermediateStop1.startTime);
-                                 ptLogger.info(getName() + ", Stop 1 end: "
-                                        + tour.intermediateStop1.endTime);
-                            }
-                        } else {
-                            // assign a start time from the tour begin activity
-                            tour.primaryDestination.startTime = tour.begin.endTime;
-                        }
+    				if (tracePerson) {
+    					ptLogger.info(getName() + ", " + (person.hhID + "_" + person.memberID)
+    							+ " has pattern -> " + patternName);
+    				}
 
-                        if (tour.intermediateStop2 != null) {
-                             ptLogger.debug("Running stop duration choice.");
-                            stopDurationModel.calculateUtilities(person, tour, tour.intermediateStop2);
-                            if(sensitivityTestingMode)
-                                random.setSeed(stopDuration2FixedSeed + person.randomSeed + System.currentTimeMillis());
-                            else random.setSeed(stopDuration2FixedSeed + person.randomSeed);
-                            short duration = (short) stopDurationModel.chooseDuration(random);
-                            tour.intermediateStop2.duration = duration;
+    				person.setPattern(new Pattern(patternName));
+    				person.setPatternLogsum(patternModelLogsum); 
+    				ptLogger.debug(getName() + ", Pattern is set");
 
-                            if (tracer.isTracePerson(person.hhID + "_" + person.memberID)) {
-                                 ptLogger.info(getName() + ", Stop 2 duration: " + duration);
-                                 ptLogger.info(getName() + ", Stop 2 start: "
-                                        + tour.intermediateStop2.startTime);
-                                 ptLogger.info(getName() + ", Stop 2 end: "
-                                        + tour.intermediateStop2.endTime);
-                            }
-                        } else {
-                            // assign an end time from the tour end activity
-                            tour.primaryDestination.endTime = tour.end.startTime;
-                        }
+    				if(person.weekdayPattern.toString().equals("h")||
+    						person.weekdayPattern.toString().equals("H"))
+    					continue;
 
-                         ptLogger.debug(getName() + ", Running trip mode choice.");
-                        if(sensitivityTestingMode)
-                            random.setSeed(tripModeFixedSeed + person.randomSeed + System.currentTimeMillis());
-                        else random.setSeed(tripModeFixedSeed + person.randomSeed);
-                        tripModeChoiceModel.calculateTripModes(household,
-                                person, tour,  skims, tazManager, random);
-                         ptLogger.debug(getName() + ", Trip mode is set");
-                    }
+    				person.weekdayTours = PatternChoiceModel.convertToTours(
+    						household, person, person.getPattern());
 
-                    //process work-based tours
-                    if(person.weekdayWorkBasedTours!=null){
-                        Tour[] wbTours = person.weekdayWorkBasedTours;
+    				person.orderTours();
+    				person.prioritizeTours();
+
+    				ptLogger.debug(getName() + ", Running stop choice.");
+    				
+    				for (int t = 0; t < person.getTourCount(); ++t) {
+    					Tour tour = person.weekdayTours[t];
+
+    					if(person.getTourCount()>=3){
+    						tourStopChoiceModel.calculateUtilities(household, person, tour);
+    						if(sensitivityTestingMode)
+    							random.setSeed(tourStopFixedSeed + person.randomSeed + System.currentTimeMillis());
+    						else random.setSeed(tourStopFixedSeed + person.randomSeed);
+
+    						tourStopChoiceModel.chooseStopType(random);
+    					}
+    				}
+
+    				ptLogger.debug(getName() + ", Running the scheduling model.");
+    				
+    				if(sensitivityTestingMode)
+    					random.setSeed(tourSchedulingFixedSeed + person.randomSeed + System.currentTimeMillis());
+    				else random.setSeed(tourSchedulingFixedSeed + person.randomSeed);
+
+    				tourSchedulingModel.chooseAllSchedules(household, person,
+    						skims, random);
+    				
+    				ptLogger.debug(getName() + ", Schedule is set");
+
+    				for (int t = 0; t < person.getTourCount(); ++t) {
+    					Tour tour = person.weekdayTours[t];
+
+    					ActivityPurpose purpose = tour.getPurpose();
+    					Matrix time =  skims.getTimeMatrix(purpose);
+    					Matrix dist =  skims.getDistanceMatrix(purpose);
+
+    					Matrix logsum = MCLogsumsInMemory.mcLogsumsInMemory[purpose.ordinal()][segment];
+
+    					Taz dest;
+
+    					if (purpose != ActivityPurpose.WORK && purpose != ActivityPurpose.WORK_BASED) {
+    						ptLogger.debug(getName() + ", Running primary destination choice for tour " + tour.tourNumber);
+
+    								dcModel.calculateUtility(household, person, tour, logsum, dist, time);
+
+    								if(sensitivityTestingMode)
+    									random.setSeed(tourDestinationFixedSeed + person.randomSeed + System.currentTimeMillis());
+    								else random.setSeed(tourDestinationFixedSeed + person.randomSeed);
+
+    								try {
+    									dest = dcModel.chooseZone(random);
+    								} catch (ModelException e) {
+    									ptLogger.debug(getName() + ", Ignoring non-fatal model exception, " + e);
+    									ptLogger.warn(getName() + ", Setting destination to home taz.");
+    									dest = tazManager.getTazDataHashtable().get((int) person.homeTaz);
+    								}
+    								tour.primaryDestination.location.zoneNumber = dest.zoneNumber;
+    					} else {
+    						ptLogger.debug(getName() + ", Using work TAZ " + person.workTaz);
+    						dest = tazManager.getTazDataHashtable().get((int) person.workTaz);
+    						tour.primaryDestination.location.zoneNumber = person.workTaz;
+    					}
+    					ptLogger.debug(getName() + ", Primary destination is set");
+
+    					if (tracePerson) {
+    						ptLogger.info(getName() + ", Chose destination: "
+    								+ tour.primaryDestination.location.zoneNumber);
+    					}
+    					Taz orig = tazManager.getTaz(tour.begin.location.zoneNumber);
+
+    					ptLogger.debug(getName() + ", Running tour mode choice from " + orig.getZoneNumber() + " to taz  "
+    							+ dest.getZoneNumber() + " for tour number " + tour.tourNumber);
+    					tourMC.setAttributes(household, person, tour,  skims, orig, dest);
+    					tourMC.calculateUtility();                        
+
+    					if(sensitivityTestingMode)
+    						random.setSeed(tourModeFixedSeed + person.randomSeed + System.currentTimeMillis());
+    					else random.setSeed(tourModeFixedSeed + person.randomSeed);
+
+    					tour.primaryMode = tourMC.chooseMode(random);
+    					ptLogger.debug(getName() + ", Tour mode is set");
+
+    					if (tracePerson) {
+    						ptLogger.info(getName() + ", Chose mode: " + tour.primaryMode);
+    					}
+
+    					ptLogger.debug(getName() + ", Running intermediate stop purpose model for tour " + tour.tourNumber);
+
+    					if(sensitivityTestingMode)
+    						random.setSeed(stopPurposeFixedSeed + person.randomSeed + System.currentTimeMillis());
+    					else random.setSeed(stopPurposeFixedSeed + person.randomSeed);
+    					iStopPurposeModel.selectStopPurpose(tour, person, random);
 
 
-                        for (Tour wbTour : wbTours) {
-                            int parentTourNumber = wbTour.parentTourNumber;
-                            wbTour.setWorkBasedTourAttributes(person.weekdayTours[parentTourNumber]);
-                            if(sensitivityTestingMode)
-                                random.setSeed(workBasedFixedSeed + person.randomSeed + wbTour.tourNumber + System.currentTimeMillis());
-                            else random.setSeed(workBasedFixedSeed + person.randomSeed + wbTour.tourNumber);
+    					ptLogger.debug(getName() + ", Running stop location choice for tour " + tour.tourNumber);
+    					
+    					if(sensitivityTestingMode)
+    						random.setSeed(stopDestinationFixedSeed + person.randomSeed + System.currentTimeMillis());
+    					else random.setSeed(stopDestinationFixedSeed + person.randomSeed);
+    					
+    					stopDestinationChoiceModel.calculateStopZones(household, person, tour,  skims, random);
 
-                            workBasedTourModel.calculateWorkBasedTour(household,
-                                    person, wbTour,  skims, mcLogsums, tazManager,
-                                    dcModel, tourMC, tripModeChoiceModel, random);
-                        }
-                    }
-                } catch (ModelException e) {
-                     ptLogger.error("Caught an exception processing person: "
-                            + (person.hhID + "_" + person.memberID));
-                     ptLogger.error("Summarizing person: " + (person.hhID + "_" + person.memberID));
+    					if (tour.intermediateStop1 != null) {
+    						ptLogger.debug("Running stop duration choice for stop 1 for tour " + tour.tourNumber);
+    						ptLogger.debug("From zone " + tour.begin.location.zoneNumber
+    								+ " to "  + tour.intermediateStop1.location.zoneNumber);
 
-                     ptLogger.error("Home-Based Tours:");
-                    for (int n = 0; n < person.getTourCount(); ++n) {
-                        Tour tour = person.weekdayTours[n];
-                        tour.print();
-                    }
-                    //print the work-based tours
-                    if(person.weekdayWorkBasedTours!=null){
-                         ptLogger.error("Work-Based Tours:");
-                        Tour[] wbTours = person.weekdayWorkBasedTours;
-                        for (Tour tour : wbTours) {
-                            tour.print();
-                             ptLogger.info(getName() + ", Parent tour number " + tour.parentTourNumber);
-                        }
-                    }
-                     ptLogger.error(person.summary());
-                    throw new RuntimeException(e);
-                }
+    						ptLogger.debug("Calculating stop duration utilities");
+    						
+    						stopDurationModel.calculateUtilities(person, tour,tour.intermediateStop1);
 
-            }
-        }
+    						if(sensitivityTestingMode)
+    							random.setSeed(stopDuration1FixedSeed + person.randomSeed + System.currentTimeMillis());
+    						else random.setSeed(stopDuration1FixedSeed + person.randomSeed);
+    						short duration = (short) stopDurationModel.chooseDuration(random);
+    						tour.intermediateStop1.duration = duration;
+
+    						if (tracer.isTracePerson(person.hhID + "_" + person.memberID)) {
+    							ptLogger.info(getName() + ", Stop 1 duration: " + duration);
+    							ptLogger.info(getName() + ", Stop 1 start: "
+    									+ tour.intermediateStop1.startTime);
+    							ptLogger.info(getName() + ", Stop 1 end: "
+    									+ tour.intermediateStop1.endTime);
+    						}
+    					} else {
+    						// assign a start time from the tour begin activity
+    						tour.primaryDestination.startTime = tour.begin.endTime;
+    					}
+
+    					if (tour.intermediateStop2 != null) {
+    						ptLogger.debug("Running stop duration choice.");
+    						stopDurationModel.calculateUtilities(person, tour, tour.intermediateStop2);
+    						if(sensitivityTestingMode)
+    							random.setSeed(stopDuration2FixedSeed + person.randomSeed + System.currentTimeMillis());
+    						else random.setSeed(stopDuration2FixedSeed + person.randomSeed);
+    						short duration = (short) stopDurationModel.chooseDuration(random);
+    						tour.intermediateStop2.duration = duration;
+
+    						if (tracer.isTracePerson(person.hhID + "_" + person.memberID)) {
+    							ptLogger.info(getName() + ", Stop 2 duration: " + duration);
+    							ptLogger.info(getName() + ", Stop 2 start: "
+    									+ tour.intermediateStop2.startTime);
+    							ptLogger.info(getName() + ", Stop 2 end: "
+    									+ tour.intermediateStop2.endTime);
+    						}
+    					} else {
+    						// assign an end time from the tour end activity
+    						tour.primaryDestination.endTime = tour.end.startTime;
+    					}
+
+    					ptLogger.debug(getName() + ", Running trip mode choice.");
+    					if(sensitivityTestingMode)
+    						random.setSeed(tripModeFixedSeed + person.randomSeed + System.currentTimeMillis());
+    					else random.setSeed(tripModeFixedSeed + person.randomSeed);
+    					tripModeChoiceModel.calculateTripModes(household,
+    							person, tour,  skims, tazManager, random);
+    					ptLogger.debug(getName() + ", Trip mode is set");
+    				}
+
+    				//process work-based tours
+    				if(person.weekdayWorkBasedTours!=null){
+    					Tour[] wbTours = person.weekdayWorkBasedTours;
 
 
-        Message returnMsg = createMessage();
-        returnMsg.setValue("households", households);
-        returnMsg.setValue("ldtToursExpected", numLDTTours);
-        if(households[0].isVisitor()){
-            returnMsg.setId(MessageID.VISITOR_HHS_PROCESSED);
-            ptLogger.info(getName() + ", Sending Visitor HHs to results queue.");
-        } else {
-            returnMsg.setId(MessageID.HOUSEHOLDS_PROCESSED);
-            ptLogger.info(getName() + ", Sending HHs to results queue.");
-        }
-        sendTo("ResultsWriterQueue", returnMsg);
+    					for (Tour wbTour : wbTours) {
+    						int parentTourNumber = wbTour.parentTourNumber;
+    						wbTour.setWorkBasedTourAttributes(person.weekdayTours[parentTourNumber]);
+    						if(sensitivityTestingMode)
+    							random.setSeed(workBasedFixedSeed + person.randomSeed + wbTour.tourNumber + System.currentTimeMillis());
+    						else random.setSeed(workBasedFixedSeed + person.randomSeed + wbTour.tourNumber);
+
+    						workBasedTourModel.calculateWorkBasedTour(household,
+    								person, wbTour,  skims, workMCLogsums, tazManager,
+    								dcModel, tourMC, tripModeChoiceModel, random);
+    					}
+    				}
+    			} catch (ModelException e) {
+    				ptLogger.error("Caught an exception processing person: "
+    						+ (person.hhID + "_" + person.memberID));
+    				ptLogger.error("Summarizing person: " + (person.hhID + "_" + person.memberID));
+
+    				ptLogger.error("Home-Based Tours:");
+    				for (int n = 0; n < person.getTourCount(); ++n) {
+    					Tour tour = person.weekdayTours[n];
+    					tour.print();
+    				}
+    				//print the work-based tours
+    				if(person.weekdayWorkBasedTours!=null){
+    					ptLogger.error("Work-Based Tours:");
+    					Tour[] wbTours = person.weekdayWorkBasedTours;
+    					for (Tour tour : wbTours) {
+    						tour.print();
+    						ptLogger.info(getName() + ", Parent tour number " + tour.parentTourNumber);
+    					}
+    				}
+    				ptLogger.error(person.summary());
+    				throw new RuntimeException(e);
+    			}
+
+    		}
+    	}
+
+
+    	Message returnMsg = createMessage();
+    	returnMsg.setValue("households", households);
+    	returnMsg.setValue("ldtToursExpected", numLDTTours);
+    	if(households[0].isVisitor()){
+    		returnMsg.setId(MessageID.VISITOR_HHS_PROCESSED);
+    		ptLogger.info(getName() + ", Sending Visitor HHs to results queue.");
+    	} else {
+    		returnMsg.setId(MessageID.HOUSEHOLDS_PROCESSED);
+    		ptLogger.info(getName() + ", Sending HHs to results queue.");
+    	}
+    	sendTo("ResultsWriterQueue", returnMsg);
+
     }
 
 

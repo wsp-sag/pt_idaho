@@ -130,7 +130,7 @@ public class MSServerTask extends MessageProcessingTask {
 
             serverLogger.info(getName() + ", Node " + nodeNumber +
                     " working on SynPopP rows " + startRow + " thru " + endRow);
-            sendWorkToWorkersOnThisNode(localPWorkQueues, msg, new String[]{"segmentByHhId", "homeTazbyHhId"});
+            sendWorkToWorkersOnThisNode(localPWorkQueues, msg, new String[]{"segmentByHhId", "homeTazbyHhId", "shadowPriceByTaz"});
 
         } else if (msg.getId().equals(MessageID.PROCESS_HOUSEHOLDS)){
             int startRow = (Integer) msg.getValue("startRow");
@@ -214,7 +214,7 @@ public class MSServerTask extends MessageProcessingTask {
         if(attachment.get(2) != null){
             serverLogger.info(getName() + ", Creating workTazHashMap");
             int[] hhIds = (int[]) attachment.get(2);
-            byte[] memIds = (byte[]) attachment.get(3);
+            int[] memIds = (int[]) attachment.get(3);
             short[] workplaces = (short[]) attachment.get(4);
             workTazByPersId = new HashMap<String, Short>(hhIds.length);
             String key;
@@ -391,8 +391,8 @@ public class MSServerTask extends MessageProcessingTask {
                             person.workTaz = workTazByPersId.get(person.hhID + "_" + person.memberID);
                         }
                     } catch (Exception e) {
-                        serverLogger.info(getName() + "Couldn't find workplace for person: " + (person.hhID + "_" + person.memberID));
-                        serverLogger.info(getName() + "Key is in hashmap: " + workTazByPersId.containsKey(person.hhID + "_" + person.memberID));
+                        serverLogger.info(getName() + " Couldn't find workplace for person: " + (person.hhID + "_" + person.memberID));
+                        serverLogger.info(getName() + " Key is in hashmap: " + workTazByPersId.containsKey(person.hhID + "_" + person.memberID));
                         if(workTazByPersId.containsKey(person.hhID + "_" + person.memberID)){
                             serverLogger.info(getName() + "Value is " + workTazByPersId.get(person.hhID + "_" + person.memberID));
                         }

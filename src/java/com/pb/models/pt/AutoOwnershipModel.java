@@ -102,15 +102,15 @@ public class AutoOwnershipModel {
 
         // read employment
         CSVFileReader reader = new CSVFileReader();
-        String previousEmp = ResourceUtil.getProperty(rb, "sdt.previous.employment");
+        String previousEmp = ResourceUtil.getProperty(rb, "sdt.employment");
         logger.info(previousEmp);
         File file = new File(previousEmp);
-        logger.info("Reading previous year's employment in " + file);
+        logger.info("Reading employment in " + file);
         TableDataSet table;
         try {
             table = reader.readFile(file);
         } catch (IOException e) {
-            String msg = "Unable to read the previous year's employment.";
+            String msg = "Unable to read the employment.";
             logger.fatal(msg);
             throw new RuntimeException(msg, e);
         }
@@ -132,7 +132,7 @@ public class AutoOwnershipModel {
                 int jtaz = extNumbers[r];
                 float totalEmp;
                 try{
-                    totalEmp = table.getIndexedValueAt(jtaz, "Total");
+                    totalEmp = table.getIndexedValueAt(jtaz, "TotEmp");
                 } catch (Exception e){
                     totalEmp = 0;
                 }

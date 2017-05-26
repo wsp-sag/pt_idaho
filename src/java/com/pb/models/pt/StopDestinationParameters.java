@@ -35,36 +35,27 @@ public class StopDestinationParameters {
     public final static int DISTANCEPOWERBIKE=7;
     public final static int DISTANCEPOWERTRANSIT=8;
     public final static int TIMEAUTO=9;                  //add'l time if mode = auto driver, passenger
-    public final static int TIMEWALK=10;                   //add'l time if mode = walk
-    public final static int TIMEBIKE=11;                       //add'l time if mode = bike
-    public final static int TIMETRANSIT=12;                 //add'l time if mode = WalkTransit,TransitPassenger,PassengerTransit,DriveTransit
-    public final static int ORIGINAUTO=13;                    // if mode = autoDriver,autoPassenger & stop = origin
-    public final static int ORIGINNONMOTOR=14;               // if mode = walk,bike & stop = origin
-    public final static int ORIGINTRANSIT=15;                 //if mode = WalkTransit,TransitPassenger,PassengerTransit,DriveTransit& stop = origin
-    public final static int DESTAUTO=16;                    // if mode = autoDriver,autoPassenger & stop = destination
-    public final static int DESTNONMOTOR=17;               // if mode = walk,bike & stop = destination
-    public final static int DESTTRANSIT=18;                 //if mode = WalkTransit,TransitPassenger,PassengerTransit,DriveTransit & stop = destination
-    public final static int INTRALOGACRES=19;
-    public final static int TOTAL_RETAIL=20;              //total retail employment
-    public final static int RETAIL_PROD=21;
-    public final static int RETAIL_OTHSRVC=22;
-    public final static int NON_RETAIL=23;
-    public final static int GRADESCHOOL=24;                    //gradeSchool employment
-    public final static int HHS=25;                              //households
-    public final static int DISTANCEFROMHOME=26;          // distance from home zone
-    
-    // used in Ohio only
-    public final static int RETAIL=27;
-    public final static int OTHERSERVICES=28;
-    public final static int HOUSEHOLDS=29;
-    public final static int GOVERNMENT=30;
-    public final static int HEALTH=31;
-    public final static int TRANSPORTATION=32;
-    public final static int OTHEREMPLOYMENT=33;
-    public final static int HIGHEREDUCATION=34;
-    public final static int K12EDUCATION=35;
-    public final static int HOTELEMPLOYMENT=36;
-    public final static int OTHEROFFICEEMPLOYMENT=37; 
+    public final static int TIMEWALK=10;                 //add'l time if mode = walk
+    public final static int TIMEBIKE=11;                 //add'l time if mode = bike
+    public final static int TIMETRANSIT=12;              //add'l time if mode = WalkTransit,TransitPassenger,PassengerTransit,DriveTransit
+    public final static int ORIGINAUTO=13;               // if mode = autoDriver,autoPassenger & stop = origin
+    public final static int ORIGINNONMOTOR=14;           // if mode = walk,bike & stop = origin
+    public final static int ORIGINTRANSIT=15;            //if mode = WalkTransit,TransitPassenger,PassengerTransit,DriveTransit& stop = origin
+    public final static int DESTAUTO=16;                 // if mode = autoDriver,autoPassenger & stop = destination
+    public final static int DESTNONMOTOR=17;             // if mode = walk,bike & stop = destination
+    public final static int DESTTRANSIT=18;              //if mode = WalkTransit,TransitPassenger,PassengerTransit,DriveTransit & stop = destination
+    public final static int INTRALOGACRES=19; 
+    public final static int HHS=20;                      //households
+    public final static int RETAIL=21;
+    public final static int OTHERSERVICES=22;
+    public final static int GOVERNMENT=23;
+    public final static int HEALTH=24;
+    public final static int TRANSPORTATION=25;
+    public final static int OTHEREMPLOYMENT=26;
+    public final static int HIGHEREDUCATION=27;
+    public final static int K12EDUCATION=28;
+    public final static int OTHEREDUCATION=29;
+    public final static int DISTANCEFROMHOME=30;
 }
 
                                                               

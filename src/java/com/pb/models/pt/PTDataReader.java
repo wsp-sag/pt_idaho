@@ -22,6 +22,7 @@ import com.pb.common.util.ResourceUtil;
 import com.pb.common.util.SeededRandom;
 import com.pb.models.pt.ldt.LDTourPatternType;
 import com.pb.models.pt.ldt.LDTourPurpose;
+
 import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
@@ -71,7 +72,6 @@ public class PTDataReader {
     //In OSMP, only 2000 is used. The ones defined here are
     //the same in both years, otherwise they will be initialized
     //in the constructor (read from the global.properties file)
-    
     static String LD_TOUR_FIELD = "LD_HOUSEHOLD_TOUR";
     static String LD_PATTERN_FIELD = "LD_HOUSEHOLD_PATTERN";
     static String LD_INDICATOR_PREFIX = "LD_INDICATOR_";
@@ -86,10 +86,11 @@ public class PTDataReader {
     static String WORK_TAZ_FIELD = "WORK_TAZ";
     static String GENDER_FIELD = "SEX";
     static String AGE_FIELD = "AGE";
-    static String SPLIT_IND_FIELD = "SW_SPLIT_IND";
+    static String SPLIT_IND_FIELD = "INDUSTRY";
     static String OCC_FIELD = "SW_OCCUP";
     static String SCHOOL_FIELD;
     static String EMP_FIELD;
+    static String WORK_OCC_FIELD;
 
     HashMap<String, Integer> personFieldPositions;
     HashMap<String, Integer> householdFieldPositions;
@@ -129,6 +130,7 @@ public class PTDataReader {
         TAZ_FIELD = globalRb.getString("alpha.name");
         SCHOOL_FIELD = globalRb.getString("pums.studentStatField.name");
         EMP_FIELD = globalRb.getString("pums.empStatField.name");
+        WORK_OCC_FIELD = globalRb.getString("pums.workOccupation.name");
     }
 
 
@@ -391,10 +393,10 @@ public class PTDataReader {
         household.singleFamily = type == 1 || type == 2 || type == 3;
         household.multiFamily = !household.singleFamily;
 
-
+        
         // code income into segments
         //household.income = (int)(Integer.parseInt(fields[positions.get(INC_FIELD)])*incomeConversionFactor);
-        household.income = priceConverter.convertPrice(Integer.parseInt(fields[positions.get(INC_FIELD)]),PriceConverter.ConversionType.INCOME);
+        household.income = priceConverter.convertPrice((int) Double.parseDouble(fields[positions.get(INC_FIELD)]),PriceConverter.ConversionType.INCOME);
 
         household.homeTaz = Short.parseShort(fields[positions.get(TAZ_FIELD)]);
 
@@ -440,7 +442,7 @@ public class PTDataReader {
                 if(currentId < lowestIdNum) lowestIdNum = currentId;
                 nHhsInFile++;
 //                currentIncome = (int) (Integer.parseInt(fields[incomeIndex]) * incomeConversionFactor);
-                currentIncome = priceConverter.convertPrice(Integer.parseInt(fields[incomeIndex]), PriceConverter.ConversionType.INCOME);
+                currentIncome = priceConverter.convertPrice((int) Double.parseDouble(fields[incomeIndex]), PriceConverter.ConversionType.INCOME);
                 incomesByHhId.put(currentId, currentIncome);
 
                 homeTaz = Short.parseShort(fields[homeTazIndex]);
@@ -585,7 +587,6 @@ public class PTDataReader {
     public PTPerson[] readPersonsForTravelModels(int hhSize, int hhId) {
         PTPerson[] persons = new PTPerson[hhSize];
         try {
-
             int hhIdPos = personFieldPositions.get(HH_ID_FIELD);
 
             int idRead = -1;
@@ -664,10 +665,9 @@ public class PTDataReader {
         int employ = Integer.parseInt(fields[empPos]);
         person.employed = employ == 1 || employ == 2 || employ == 4
                 || employ == 5;
-
-        person.industry = Byte.parseByte(fields[splitIndPos]);
+       
         person.occupation = myOccReferencer.getOccupation(Integer.parseInt(fields[occPos]));
-
+        
         // code the person type
         if (person.age <= 5) person.personType = PersonType.PRESCHOOL;
         else if (person.age <= 17) person.personType = PersonType.STUDENTK12;
@@ -676,7 +676,7 @@ public class PTDataReader {
         else person.personType = PersonType.NONWORKER;
 
         // when LDT is reading the file, whether a long distance trip
-        // happens is already know
+        // happens is already known
         if (ldtRead) {
 
             for (LDTourPurpose purpose : LDTourPurpose.values()) {
@@ -718,6 +718,8 @@ public class PTDataReader {
      * HHID*10 + the memberID.  This seed will be unique to this person and will be set the
      * same no matter which VM the person is created on.
      *
+     * 3/10/15 Ashish made changes to use work occupation code for persons. This was used to get the split
+     * employment to be used as segmented employment in the work place location choice model. 
      * @return An array of all persons.
      */
     public PTPerson[] readPersonsForWorkplaceLocation(int startRow, int endRow) {
@@ -737,8 +739,7 @@ public class PTDataReader {
             int hhIdPos = positions.get(HH_ID_FIELD);
             int memberPos =positions.get(PERSON_ID_FIELD);
             int empPos =positions.get(EMP_FIELD);
-            int splitIndPos = positions.get(SPLIT_IND_FIELD);
-            int occPos = positions.get(OCC_FIELD);
+            int workOccPos = positions.get(WORK_OCC_FIELD);
             
             //skip the rows that are not the ones you want
             while(rowPointerPosition < startRow){
@@ -757,11 +758,12 @@ public class PTDataReader {
                 person.memberID = Integer.parseInt(fields[memberPos]);
 
                 int employ = Integer.parseInt(fields[empPos]);
+                
                 person.employed = employ == 1 || employ == 2 || employ == 4
                 || employ == 5;
                 
-                //person.industry = Byte.parseByte(fields[splitIndPos]);											//[AK]
-                person.occupation = myOccReferencer.getOccupation(Integer.parseInt(fields[occPos]));				
+                person.workOccupation = Integer.parseInt(fields[workOccPos]);		
+                
                 person.randomSeed = person.hhID*100 + person.memberID;
 
                 persons.add(person);
@@ -1070,16 +1072,64 @@ public class PTDataReader {
         randomNumGenerator = new Random(2002);  //Same seed as SeededRandom class
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
     	
-    	String line = "1,1,1,45,1,1,,620.0,,MANAGER,";
-    	String[] fields = line.split(",");
-    	int index = 0;
-        for(String field : fields) {
-        	System.out.println("index  " + index + "     value  " + field);
-        	index ++;
+//    	String line = "1,1,1,45,1,1,,620.0,,MANAGER,";
+//    	String[] fields = line.split(",");
+//    	int index = 0;
+//        for(String field : fields) {
+//        	System.out.println("index  " + index + "     value  " + field);
+//        	index ++;
+//        }
+        String hhFileName = "C:/Users/kulshresthaa/Desktop/PopSyn0_HH/PopSyn0_HH.CSV";
+        logger.info("Opening household file " + hhFileName);
+        BufferedReader householdReader = null;
+        try {
+        	householdReader = new BufferedReader(new FileReader(hhFileName));
+
+        } catch (IOException e) {
+        	logger.fatal("Could not open household file" + hhFileName);
         }
         
-    	
+            int lowestIdNum = Integer.MAX_VALUE;
+            int nHhsInFile = 0;
+            // create a lookup table for field positions
+            HashMap<String, Integer> positions = new HashMap<String, Integer>();
+            String[] header = householdReader.readLine().split(",");
+            
+            for (int i = 0; i < header.length; ++i) {
+                positions.put(header[i], i);
+                logger.info(header[i]);
+            }
+            
+            int hhIdIndex = positions.get(HH_ID_FIELD);
+            int incomeIndex = positions.get(INC_FIELD);
+            int homeTazIndex = positions.get(TAZ_FIELD);
+            int currentId = -1;
+            int currentIncome;
+            short homeTaz;
+            HashMap<Integer, Integer> incomesByHhId = new HashMap<Integer, Integer>();
+            HashMap<Integer, Short> homeTazByHhId = new HashMap<Integer, Short>();
+            String line = householdReader.readLine();
+
+            while (line != null) {
+                String[] fields = line.split(",");
+                currentId = Integer.parseInt(fields[hhIdIndex]);
+                if(currentId < lowestIdNum) lowestIdNum = currentId;
+                nHhsInFile++;
+                currentIncome = (int) Double.parseDouble(fields[incomeIndex]);
+                incomesByHhId.put(currentId, currentIncome);
+
+                homeTaz = Short.parseShort(fields[homeTazIndex]);
+                homeTazByHhId.put(currentId, homeTaz);
+
+                line = householdReader.readLine();
+            }
+
+        try {
+        	householdReader.close();
+        } catch (IOException e) {
+        	logger.fatal("Could not close household file" + hhFileName);
+        }    	
     }
 }

@@ -16,6 +16,7 @@
  */
 package com.pb.models.pt.ldt;
 
+import com.pb.common.datafile.TableDataSet;
 import com.pb.common.matrix.Matrix;
 import com.pb.common.util.ResourceUtil;
 import com.pb.common.util.SeededRandom;
@@ -71,8 +72,6 @@ public class LDAutoDetailsModel {
             sr3Prob[i] = (avgAutoOcc[i] - 1) * 0.2f; 
             daProb[i] = 1 - sr2Prob[i] - sr3Prob[i]; 
         }
-
-        //dist = LDSkimsInMemory.getOffPeakMatrix(LDTourModeType.AUTO, "Dist");				[AK]
         skims = SkimsInMemory.getSkimsInMemory();
         dist = skims.opDist;
     }
@@ -95,10 +94,16 @@ public class LDAutoDetailsModel {
         }
 
         // then the airport zones
-        String[] airportZoneString = ResourceUtil.getArray(rb, "ldt.airport.zones");
-        airportZones = new int[airportZoneString.length];
-        for (int i=0; i<airportZoneString.length; i++) {
-            airportZones[i] = (new Integer(airportZoneString[i])).intValue();
+//        String[] airportZoneString = ResourceUtil.getArray(rb, "ldt.airport.zones");
+//        airportZones = new int[airportZoneString.length];
+//        for (int i=0; i<airportZoneString.length; i++) {
+//            airportZones[i] = (new Integer(airportZoneString[i])).intValue();
+//        }
+        
+        TableDataSet airportData = ParameterReader.readParametersAsTable(rb,"ldt.airport.zones");
+        airportZones = new int[airportData.getRowCount()];
+        for (int i = 0; i < airportData.getRowCount(); i++) {
+        	airportZones[i] = (int) airportData.getValueAt(i+1, "TAZ");
         }
     }
 

@@ -27,9 +27,6 @@ public enum LDTourModeType {
     AUTO, 
     AIR, 
     TRANSIT_WALK;
-//    TRANSIT_DRIVE,
-//    HSR_WALK,
-//    HSR_DRIVE;
     
     /**
      * 
@@ -39,9 +36,6 @@ public enum LDTourModeType {
         if (this.equals(AUTO))  return "Car";
         else if (this.equals(AIR))   return "Air";
         else if (this.equals(TRANSIT_WALK))   return "Icwt";
-        //else if (this.equals(TRANSIT_DRIVE)) return "Icdt";
-        //else if (this.equals(HSR_WALK)) return "IcRwt";
-        //else if (this.equals(HSR_DRIVE)) return "IcRdt";
         else return "none";
     }
 
@@ -60,15 +54,6 @@ public enum LDTourModeType {
         else if (this.equals(TRANSIT_WALK)) {
             return new String[]{"Ivt", "Far", "Fwt", "Twt", "Awk", "Xwk", "Ewk"};
         }
-//        else if (this.equals(HSR_WALK)) {
-//            return new String[]{"Ivt", "Riv", "Far", "Fwt", "Twt", "Awk", "Xwk", "Ewk", "Frq"};
-//        }
-//        else if (this.equals(TRANSIT_DRIVE)) {
-//            return new String[]{"Ivt", "Biv", "Far", "Fwt", "Twt", "Xwk", "Drv"};
-//        }
-//        else if (this.equals(HSR_DRIVE)) {
-//            return new String[]{"Ivt", "Riv", "Far", "Fwt", "Twt", "Xwk", "Drv", "Frq"};
-//        }
         else {
             return new String[]{"none"};
         }

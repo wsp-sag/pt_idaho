@@ -14,10 +14,10 @@ import java.util.ResourceBundle;
  * Created by IntelliJ IDEA.
  */
 public enum PTOccupation implements PTOccupationReferencer {
-    NONE, MANAGER, HEALTH, POST_SECONDARY_ED,
-    OTHER_ED, PROFESSIONAL, RETAIL, OTHER, NON_OFFICE;
+    NONE, MANAGER, PROFESSIONAL, POST_SECONDARY_ED,
+    OTHER_ED, HEALTH, RETAIL, OTHER, NON_OFFICE;
 
-    private static boolean USING_AA = true;
+    private static boolean USING_AA = false;
 
     /**
      * Specifies using AA (which means a different set of PI/PECAS/AA occupations names/codes
@@ -78,8 +78,7 @@ public enum PTOccupation implements PTOccupationReferencer {
             return NON_OFFICE;
         throw new ModelException("Could not convert the occupation: " + occupation);
     }
-
-    // [AK] added secong OR (||) options to check for the occupation so that cccupation could be specified as one or the other types (1_ManPro,...) or (MANAGER, ...) 
+ 
     private PTOccupation getOccupationPI(String occupation) {
         if (occupation.startsWith("0_NoOccupation")) {
             return NONE;
@@ -143,10 +142,10 @@ public enum PTOccupation implements PTOccupationReferencer {
         switch(index){
             case 0: return NONE;
             case 1: return MANAGER;
-            case 2: return HEALTH;
+            case 2: return PROFESSIONAL;
             case 3: return POST_SECONDARY_ED;
             case 4: return OTHER_ED;
-            case 5: return PROFESSIONAL;
+            case 5: return HEALTH;
             case 6: return RETAIL;
             case 7: return OTHER;
             case 8: return NON_OFFICE;

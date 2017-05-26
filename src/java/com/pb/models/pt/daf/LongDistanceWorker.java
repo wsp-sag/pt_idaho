@@ -151,13 +151,6 @@ public class LongDistanceWorker extends MessageProcessingTask {
         int highMax = priceConverter.convertPrice(ResourceUtil.getIntegerProperty(ptRb,"pt.med.high.max.income",60000),PriceConverter.ConversionType.PRICE);
 
         IncomeSegmenter.setIncomeCategoryRanges(lowMax, highMax);
-
-        //Now reading all the skims in SkimInMemory Class - [AK]
-        /*
-        // initialize the skims in memory
-    	LDSkimsInMemory LDSkims = LDSkimsInMemory.getInstance();
-    	LDSkims.readSkimsIntoMemory(globalRb, ptRb);
-		*/
       
     }
     
@@ -186,9 +179,9 @@ public class LongDistanceWorker extends MessageProcessingTask {
 
         ldInternalDestinationChoiceModel = new LDInternalDestinationChoiceModel(
                 globalRb, ptRb, tazManager, ldInternalModeChoiceModel);
-
+        
         ldExternalModeChoiceModel = LDExternalModeChoiceModel.newInstance(globalRb, ptRb);
-
+        
         ldExternalDestinationModel = LDExternalDestinationModel.newInstance(globalRb, ptRb);
 
         ldAutoDetailsModel = new LDAutoDetailsModel(ptRb);
@@ -202,7 +195,7 @@ public class LongDistanceWorker extends MessageProcessingTask {
         		initializeModels();
         	}
             // read workplace locations from file
-            String fileName = ResourceUtil.getProperty(ptRb, "sdt.current.employment");
+            String fileName = ResourceUtil.getProperty(ptRb, "sdt.employment");
             tazManager.updateWorkersFromSummary(fileName);
             firstMessage = false;
         }
@@ -214,9 +207,9 @@ public class LongDistanceWorker extends MessageProcessingTask {
         for (LDTour tour : tours) {
             tour.schedule = ldSchedulingModel.chooseSchedule(tour, sensitivityTestingMode);
             tour.destinationType = ldInternalExternalModel.chooseInternalExternal(tour, sensitivityTestingMode);
-
+            
             if (tour.destinationType == LDTourDestinationType.EXTERNAL) {
-                tour.destinationTAZ = ldExternalDestinationModel.chooseTaz(tour, sensitivityTestingMode);
+            	tour.destinationTAZ = ldExternalDestinationModel.chooseTaz(tour, sensitivityTestingMode);
                 tour.distance = ldExternalModeChoiceModel.getDistance(tour);    
                 
                 // apply the correct model depending on the destination
@@ -224,19 +217,39 @@ public class LongDistanceWorker extends MessageProcessingTask {
                 if (tour.modeChoiceHaloFlag) {
                     tour.mode = ldInternalModeChoiceModel.chooseMode(tour, sensitivityTestingMode);
                     tour.outboundTime = ldInternalModeChoiceModel.getOutboundTravelTime(tour);
-                    tour.inboundTime  = ldInternalModeChoiceModel.getInboundTravelTime(tour);                    
+                    tour.inboundTime  = ldInternalModeChoiceModel.getInboundTravelTime(tour); 
+                    logger.debug("****************");
+                    logger.debug("tour.destinationType : " + tour.destinationType);
+                    logger.debug("tour.destinationTAZ : " + tour.destinationTAZ);
+                    logger.debug("tour.modeChoiceHaloFlag : " + tour.modeChoiceHaloFlag);
+                    logger.debug("tour.mode : " + tour.mode);
+                    logger.debug("tour.outboundTime : " + tour.outboundTime);
+                    logger.debug("tour.inboundTime : " + tour.inboundTime);
                 } else {
                     tour.mode = ldExternalModeChoiceModel.chooseMode(tour, sensitivityTestingMode);
-                }
+                    logger.debug("****************");
+                    logger.debug("tour.destinationType : " + tour.destinationType);
+                    logger.debug("tour.destinationTAZ : " + tour.destinationTAZ);
+                    logger.debug("tour.modeChoiceHaloFlag : " + tour.modeChoiceHaloFlag);
+                    logger.debug("tour.mode : " + tour.mode);
+                }                
             } else {
-                tour.destinationTAZ = ldInternalDestinationChoiceModel.chooseTaz(tour, sensitivityTestingMode);
+            	tour.destinationTAZ = ldInternalDestinationChoiceModel.chooseTaz(tour, sensitivityTestingMode);
                 tour.distance = ldInternalDestinationChoiceModel.getDistance(tour);
                 tour.mode = ldInternalModeChoiceModel.chooseMode(tour, sensitivityTestingMode);
                 tour.outboundTime = ldInternalModeChoiceModel.getOutboundTravelTime(tour);
                 tour.inboundTime = ldInternalModeChoiceModel.getInboundTravelTime(tour);
+                logger.debug("****************");
+                logger.debug("tour.destinationType : " + tour.destinationType);
+                logger.debug("tour.destinationTAZ : " + tour.destinationTAZ);
+                logger.debug("tour.mode : " + tour.mode);
+                logger.debug("tour.outboundTime : " + tour.outboundTime);
+                logger.debug("tour.inboundTime : " + tour.inboundTime);
             }
             tour.tripMode = ldAutoDetailsModel.chooseTripMode(tour, sensitivityTestingMode);
             tour.nearestAirport = ldAutoDetailsModel.chooseAirportTaz(tour);
+            logger.debug("tour.tripMode : " + tour.tripMode);
+            logger.debug("tour.nearestAirport : " + tour.nearestAirport);
         }
 
         StatusLogger.logText("pt.ld.tours","LD Tours: " + tours.length + " - t" + timePeriod);

@@ -17,6 +17,8 @@
 package com.pb.idaho.pt.ldt;
 
 import com.pb.models.pt.ldt.LDInternalExternalModel;
+import com.pb.models.pt.ldt.ParameterReader;
+import com.pb.common.datafile.TableDataSet;
 import com.pb.common.util.ResourceUtil;
 import com.pb.idaho.model.WorldZoneExternalZoneUtil;
 
@@ -38,26 +40,24 @@ public class ITDLDInternalExternalModel extends LDInternalExternalModel {
 
 
 
+//    public void readExternalStations(ResourceBundle rb){
+//        // get the external zones
+//    	externalStations = new ArrayList<Integer>();
+//        int[] externalZones = ResourceUtil.getIntegerArray(rb, "external.zones");
+//        
+//        for(int zone : externalZones){
+//            externalStations.add(zone);    
+//        }
+//    	
+//    }
+    
     public void readExternalStations(ResourceBundle rb){
-    	
-    	// Temp change the method to get external zones [AK] 
-    	/*
-        externalStations = new ArrayList<Integer>();
-
-        WorldZoneExternalZoneUtil wzUtil = new WorldZoneExternalZoneUtil(globalRb);
-        int[] externalZones = wzUtil.getExternalZones();
-        for(int zone : externalZones){
-            externalStations.add(zone);    
-        }
-        */
-    	
-        // get the external zones
+    	// get the external zones
     	externalStations = new ArrayList<Integer>();
-        int[] externalZones = ResourceUtil.getIntegerArray(rb, "external.zones");
-        
-        for(int zone : externalZones){
-            externalStations.add(zone);    
-        }
-    	
+        TableDataSet externalStationData = ParameterReader.readParametersAsTable(rb, "ldt.external.station.data");
+    	for (int i = 0; i < externalStationData.getRowCount(); i++) {
+    		int extSta = (int) externalStationData.getValueAt(i + 1, "ExSta");
+    		externalStations.add(extSta);
+    	}
     }
 }

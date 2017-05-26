@@ -85,14 +85,6 @@ public class TourModeChoiceLogsumManager {
         departCost = new TravelTimeAndCost();
         returnCost = new TravelTimeAndCost();
         
-        /* [AK]
-        String fileName = ResourceUtil.getProperty(globalRb, "alpha2beta.file");
-        String alphaName = globalRb.getString("alpha.name");
-        String betaName = globalRb.getString("beta.name");
-        logger.info("Reading " + fileName);
-        tazToAmz = new AlphaToBeta(new File(fileName), alphaName, betaName);
-        */
-        
         nonWorkParkingCostFactor = Float.parseFloat(rb.getString("sdt.non.work.parking.cost.factor"));
 
         tracer.readTraceSettings(rb);
@@ -117,13 +109,8 @@ public class TourModeChoiceLogsumManager {
                 + thisPurpose + "  Segment: " + segment);
 
         String mName = getName(thisPurpose, segment);
-
-        //logger.info("**** RoWColNumbers : " + (skims.pkTime.getInternalNumbers().length - 1) + ", " + (skims.pkTime.getInternalNumbers().length - 1) + "  ****");
         
         Matrix m = new Matrix(mName, "mcLogsumMatrix", skims.pkTime.getInternalNumbers().length - 1, skims.pkTime.getInternalNumbers().length - 1);
-        
-        //Matrix m = new Matrix(mName, "mcLogsumMatrix", taz.size(), taz.size());				//[AK]
-        //m.setExternalNumbers(taz.getExternalNumberArrayOneIndexed());							//[AK]
         
     	m.setName(mName);
         
@@ -154,7 +141,7 @@ public class TourModeChoiceLogsumManager {
 
                 returnCost = setReturnCost(thisPurpose, skims, originTaz,
                         destinationTaz);
-
+                
                 if (trace) {
                     departCost.printToScreen();
                     returnCost.printToScreen();
@@ -163,8 +150,12 @@ public class TourModeChoiceLogsumManager {
                 double logsum = mcModel.calculateUtility(departCost,
                         returnCost, attributes , thisZone);
 
-                m.setDoubleValueAt(originTaz.zoneNumber, destinationTaz.zoneNumber, logsum,-999,Float.MAX_VALUE);
+//                if(itaz == 1203 && segment == 8 && thisPurpose == ActivityPurpose.WORK) {
+//                	logger.info("****************** jtaz " + jtaz + ", logsum " + logsum);
+//                }
 
+                m.setDoubleValueAt(originTaz.zoneNumber, destinationTaz.zoneNumber, logsum, -999, Float.MAX_VALUE);
+                
             } //end destination zone loop
         } // end origin zone loop
 
@@ -314,7 +305,7 @@ public class TourModeChoiceLogsumManager {
     * @return  The logsum matrix.
     */
    public Matrix readLogsumMatrix(ActivityPurpose purpose,int segment){
-       //get path to skims
+       //get path 
        String path = ResourceUtil.getProperty(rb, "sdt.current.mode.choice.logsums");
        String ext = ResourceUtil.getProperty(rb, "matrix.extension",".zmx");
        String name = path + getName(purpose, segment) + ext;

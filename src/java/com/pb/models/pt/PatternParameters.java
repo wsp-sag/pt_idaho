@@ -278,10 +278,21 @@ public class PatternParameters {
     public static final int CLSUMSTOPPERTOUR  = 251; // Destination choice logsum * number of other stops per tour
     public static final int CLSUMCTOUR        = 252; // Destination choice logsum (college) * total number of tours
     public static final int CLSUMCSPT         = 253; // Destination choice logsum (college) * total stops per tour
-    
+
+    // new variables aaded for Idaho calibration
+    public static final int CSHOPOUT           = 254 ; // dummy if there is outbound without inboud in shop tour                                             
+    public static final int CSHOPIN            = 255 ; // dummy if there is inbound without outbound  in shop tour                                           
+    public static final int CSHOPINOUT         = 256 ; // dummy if there is both inbound-outbound in shop tour 
+    public static final int CRECREATEOUT       = 257 ; // dummy if there is outbound without inboud in recreate tour                                             
+    public static final int CRECREATEIN        = 258 ; // dummy if there is inbound without outbound  in recreate tour                                           
+    public static final int CRECREATEINOUT     = 259 ; // dummy if there is both inbound-outbound in recreate tour 
+    public static final int COTHEROUT          = 260 ; // dummy if there is outbound without inboud in other tour                                             
+    public static final int COTHERIN           = 261 ; // dummy if there is inbound without outbound  in other tour                                           
+    public static final int COTHERINOUT        = 262 ; // dummy if there is both inbound-outbound in other tour 
+
     // new variables for ohio
-    public static final int CSCHSTOPSCHTOUR   = 254; // Presence of school stops on school tours
-    public static final int CWRKSTOPSCHTOUR   = 255; // Presence of work stops only on school tours
-    public static final int CHOMEWORKHOME     = 256; // Pattern is Home-Work-Home
+    public static final int CSCHSTOPSCHTOUR   = 263; // Presence of school stops on school tours
+    public static final int CWRKSTOPSCHTOUR   = 264; // Presence of work stops only on school tours
+    public static final int CHOMEWORKHOME     = 265; // Pattern is Home-Work-Home
     
 }

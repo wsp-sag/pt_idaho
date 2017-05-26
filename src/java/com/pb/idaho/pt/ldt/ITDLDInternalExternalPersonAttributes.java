@@ -21,7 +21,6 @@ import com.pb.models.pt.ldt.LDInternalExternalPersonAttributes;
 import com.pb.idaho.pt.PTOccupation;
 
 /**
- * TODO Set occupation codes appropriately here!!!
  * 
  * @author Erhardt
  * @version 1.0 Mar 7, 2007
@@ -64,8 +63,7 @@ public class ITDLDInternalExternalPersonAttributes extends LDInternalExternalPer
         if (p.employed) {
             if (p.occupation == PTOccupation.HEALTH)                 occMedical   = 1; 
             else if (p.occupation == PTOccupation.POST_SECONDARY_ED) occEducation = 1;     
-            else if (p.occupation == PTOccupation.OTHER_ED)          occEducation = 1;                 
+            else if (p.occupation == PTOccupation.OTHER_ED)          occEducation = 1; 
         }
     }
-
 }
