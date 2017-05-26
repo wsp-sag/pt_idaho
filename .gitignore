@@ -2,4 +2,4 @@
 /release/
 .classpath
 .project
-*.txt
+*.log
